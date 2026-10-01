@@ -1,6 +1,7 @@
 """Sensitivity classification (one structured LLM call) and the is_sensitive rule.
 
-Sensitive = category != none OR normalized score >= SENSITIVITY_THRESHOLD (decision log #18).
+Sensitive = (category != none AND score >= SENSITIVE_CATEGORY_MIN_SCORE)
+            OR normalized score >= SENSITIVITY_THRESHOLD      (decision log #18, revised by #25)
 Sensitive questions always escalate.
 """
 
@@ -10,6 +11,13 @@ from backend.schemas import SensitivityCategory, SensitivityResult
 SYSTEM_INSTRUCTION = """\
 You classify questions that parents send to the front desk of a daycare / pre-K.
 You do NOT answer the question. You decide how sensitive it is.
+
+Classify by what the parent NEEDS, not by which topics are mentioned. Use a sensitive
+category when a person's judgement is needed about a specific child's situation. Routine
+logistics or general policy questions that merely mention a topic are `none`:
+- "How do I call my daughter in sick?" -> none (reporting an absence is routine)
+- "What is your policy on sunscreen?" -> none (general policy)
+- "My daughter has a fever, can she still come in?" -> health (judgement about this child)
 
 Pick exactly one category:
 - health: illness, symptoms, fever, injuries, medication, a child's physical wellbeing.
@@ -45,4 +53,5 @@ def normalized(score: int) -> float:
 
 
 def is_sensitive(result: SensitivityResult) -> bool:
-    return result.category != SensitivityCategory.none or normalized(result.score) >= config.SENSITIVITY_THRESHOLD
+    tagged = result.category != SensitivityCategory.none and result.score >= config.SENSITIVE_CATEGORY_MIN_SCORE
+    return tagged or normalized(result.score) >= config.SENSITIVITY_THRESHOLD

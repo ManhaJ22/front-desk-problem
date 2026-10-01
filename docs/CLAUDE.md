@@ -32,13 +32,16 @@ full reasoning behind every design choice below; this file states the
 3. **Classify sensitivity** — one LLM call, structured output
    (`category`, `score` 1-5, one-sentence `rationale`). Categories:
    `health`, `safety`, `allergies`, `custody_legal`, `emotional_social`,
-   `none`. A question is **sensitive** if its category is anything other
-   than `none` **or** its normalized sensitivity score
-   (`(score - 1) / 4`) is ≥ **0.70** (i.e. score 4 or 5). **Sensitive
-   questions always escalate**, regardless of anything downstream. The
-   bar is deliberately low: a false positive (staff see a question the
-   bot could have answered) is cheaper than a false negative (a
-   sensitive question answered automatically). See decision log #18.
+   `none`. The classifier categorizes by **what the parent needs**, not
+   by which topic is mentioned: "my child has a fever, can she come in?"
+   is `health`; "how do I call her in sick?" is routine logistics (`none`).
+   A question is **sensitive** if its category is not `none` **and** its
+   score is ≥ 3, **or** its normalized score (`(score - 1) / 4`) is
+   ≥ **0.70** (score 4–5) whatever the category. **Sensitive questions
+   always escalate**, regardless of anything downstream. The bar still
+   leans toward false positives (staff see a question the bot could have
+   answered) over false negatives (a sensitive question answered
+   automatically). See decision log #18, revised by #25.
 4. **Generate answer + extract claimed facts** — one LLM call, structured
    output (`answer`, `claimed_facts: list[str]`). The model must answer
    only from the retrieved excerpts and list every specific factual claim
@@ -68,7 +71,9 @@ full reasoning behind every design choice below; this file states the
 
 - Every escalation path — out-of-scope, below-threshold, or sensitive —
   shows the parent the **same thing: a message that staff has been
-  notified.** Nothing else. In particular, a sensitive question does
+  notified, plus the front-office phone number for anything urgent**
+  ("…If it's urgent, call (555) 014-2200." — decision log #25). Nothing
+  else. In particular, a sensitive question does
   **not** get the generated answer or handbook excerpt shown alongside
   the notice, even if a grounded answer exists.
 - There is no reply channel back to the parent. The loop closes through
@@ -170,8 +175,8 @@ are in `docs/architecture.md` (decision log #14).
 - Structured outputs only — no regex/free-text parsing of LLM output.
 - Adherence checking stays mechanical (token-overlap), never a second LLM
   call grading the first — that's circular.
-- Sensitive questions (category ≠ `none`, or normalized sensitivity
-  score ≥ 0.70) always escalate.
+- Sensitive questions (category ≠ `none` with score ≥ 3, or normalized
+  sensitivity score ≥ 0.70) always escalate.
 - Urgency detection stays keyword-based and static — see "Out of scope"
   below before adding date resolution.
 - Knowledge-base editing and question review stay in separate operator UI

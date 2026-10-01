@@ -84,7 +84,17 @@ p { margin: 0; }
   padding: 16px; border-bottom: 1px solid var(--line);
   position: sticky; top: 0; background: var(--bg); z-index: 1;
 }
-.staff-link { margin-left: auto; font-size: 0.85rem; }
+/* Top-of-page switch between the parent and staff views (both pages). */
+.view-switch {
+  display: flex; justify-content: center; gap: 4px;
+  padding: 8px 16px; background: var(--ink);
+}
+.view-switch a {
+  color: #d9d2c7; text-decoration: none; font-size: 0.9rem; font-weight: 500;
+  padding: 6px 16px; border-radius: 999px;
+}
+.view-switch a:hover { color: #fff; }
+.view-switch a.active { background: var(--bg); color: var(--ink); }
 .chat { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 
 .bubble {

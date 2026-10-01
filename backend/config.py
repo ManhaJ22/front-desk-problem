@@ -37,12 +37,18 @@ ADHERENCE_WEIGHT = 0.65
 CONFIDENCE_THRESHOLD = 0.80  # combined score needed to answer a non-sensitive question
 FACT_TOKEN_MATCH_RATIO = 0.7
 
-# --- Sensitivity (decision log #18) ---------------------------------------------
-# Sensitive = category != "none" OR (score - 1) / 4 >= this. Sensitive always escalates.
-SENSITIVITY_THRESHOLD = 0.70
+# --- Sensitivity (decision log #18, revised by #25) -------------------------------
+# Sensitive = (category != "none" AND score >= SENSITIVE_CATEGORY_MIN_SCORE)
+#             OR (score - 1) / 4 >= SENSITIVITY_THRESHOLD.   Sensitive always escalates.
+SENSITIVITY_THRESHOLD = 0.70  # score 4-5 is sensitive whatever the category
+SENSITIVE_CATEGORY_MIN_SCORE = 3  # a category tag scored 1-2 ("call her in sick") doesn't force escalation
 
 # --- Copy -------------------------------------------------------------------------------
-ESCALATION_MESSAGE = "Thanks for your question. I've notified the Little Acorns staff about it."
+# Always gives the parent a next step (decision log #25). Mirrored in frontend/src/mockApi.js.
+ESCALATION_MESSAGE = (
+    "Thanks for your question. I've notified the Little Acorns staff about it. "
+    "If it's urgent, call (555) 014-2200."
+)
 
 # Topic categories for handbook chunks (not sensitivity categories). Mirrored in frontend/src/api.js.
 KB_CATEGORIES = [

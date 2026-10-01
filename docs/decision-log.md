@@ -315,3 +315,41 @@ service. Verified against Render's docs rather than assumed:
 Free-tier consequences (still decision #11, OPEN): ephemeral SQLite and
 spin-down when idle — the first request after idle waits for a cold
 boot, which also re-seeds the handbook (one batched embedding call).
+
+### 25. Escalate on need, not mention; phone number in escalation message; absence policy — 2026-10-01
+**Revises #18 and #8.** Found in the deployed demo: "my child is sick can
+I call her in sick?" → "Sent to staff" with nothing else. Three causes:
+1. **Handbook gap** (mine): no policy for reporting an absence — one of
+   the most common front-desk questions. The model correctly said "I'm
+   not sure" with no claims. → Added an "Absences / Calling In Sick"
+   section to `data/handbook.json`.
+2. **Topic-triggered escalation**: the classifier tagged it `health` but
+   scored it only 2/5 with the rationale "can mostly be processed
+   routinely"; under #18 any non-`none` category forced escalation.
+   → Two complementary changes:
+   - The classifier now categorizes by **what the parent needs**:
+     sensitive categories are for when a person's judgement is needed
+     about a child's situation; reporting an absence or asking a general
+     policy question that merely mentions illness is `none`.
+   - Rule: sensitive = (category ≠ `none` **and** score ≥ 3) **or**
+     normalized score ≥ 0.70 (score 4–5, any category). A low-scored
+     category tag alone no longer forces escalation; a high score still
+     does even if the category is `none`.
+   Trade-off accepted: slightly more false-negative risk than #18 — a
+   genuinely sensitive question the classifier scores 2 would now be
+   answered (if grounded). Still leans toward false positives (3/5 is a
+   low bar) and adherence still has to pass.
+3. **Dead-end message**: the parent had no next step. → Escalation
+   message is now "Thanks for your question. I've notified the Little
+   Acorns staff about it. If it's urgent, call (555) 014-2200." Still no
+   generated content on escalation (the core of #8 stands); this also
+   partially addresses the emergency concern noted under #8.
+
+### 26. A view switcher on both pages — 2026-10-01
+The user found the deployed app "disconnected": the parent chat had no
+way to reach the staff dashboard (by design — a real parent shouldn't
+see a staff link), so the dashboard looked missing. For a prototype whose
+point is showing *both* perspectives, discoverability wins over realism:
+`App.jsx` now renders a "Parent chat | Staff dashboard" switcher at the
+top of both pages (replacing the one-way "Parent view →" link). In a
+real product these would be separate apps with separate auth.

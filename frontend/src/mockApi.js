@@ -3,7 +3,7 @@
 // say nothing about how the real pipeline decides.
 
 const ESCALATION_MESSAGE =
-  "Thanks for your question. I've notified the Little Acorns staff about it.";
+  "Thanks for your question. I've notified the Little Acorns staff about it. If it's urgent, call (555) 014-2200.";
 const DELAY_MS = 600;
 
 const wait = () => new Promise((r) => setTimeout(r, DELAY_MS));

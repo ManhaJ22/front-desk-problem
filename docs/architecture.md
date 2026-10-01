@@ -16,7 +16,7 @@ one has a default in the sections below.
 | A | The CLAUDE.md schema has no column for urgency or escalation reason, but triage needs both | **Approved 2026-10-01**: added `is_urgent`, `escalation_reason` (and `sensitivity_rationale`) to `question_log`; CLAUDE.md updated (decision #14) |
 | B | Out-of-scope questions skip the sensitivity call (by design), so a sensitive question that matches nothing in the handbook is logged as *not sensitive* | Accept this. It is still escalated, and urgency (keyword-based, no API cost) is still detected. Mentioned in the write-up as a known limit |
 | C | The model returns zero `claimed_facts` | `adherence_score = 0.0` → always escalates. If the model makes no checkable claim, we can't verify the answer |
-| D | What `sensitivity_score` (1–5) is used for | **Revised (#18):** `is_sensitive` = `category != "none"` **or** `(score − 1)/4 ≥ 0.70`. Sensitive always escalates; no separate 0.90 bar |
+| D | What `sensitivity_score` (1–5) is used for | **Revised (#18, #25):** `is_sensitive` = (`category != "none"` **and** `score ≥ 3`) **or** `(score − 1)/4 ≥ 0.70`. Sensitive always escalates; no separate 0.90 bar |
 | E | Gemini errors out (429 quota, timeout) | Escalate with `escalation_reason = "system_error"` and log the row. The parent sees the normal "staff notified" message |
 | F | Generation still runs for force-escalated (sensitive) questions | Yes. CLAUDE.md says the would-have-been answer is logged for the operator. Only out-of-scope questions skip it |
 | G | Frontend language and styling | JavaScript (JSX), not TypeScript; plain CSS, no UI library |
@@ -24,7 +24,7 @@ one has a default in the sections below.
 | I | Similarity floor and ceiling before calibration | **Done 2026-10-01 (#21):** floor 0.64, semantic zero 0.50, ceiling 0.77 for `gemini-embedding-001` @ 768 |
 | J | Operator routes on a public URL | No auth (CLAUDE.md lists this as out of scope). Anyone with the URL can edit the KB in the demo |
 | K | What a parent sees on an answered question | The answer, plus "From the handbook: <title>" for each chunk that backed at least one matched fact |
-| L | Exact escalation wording | "Thanks for your question. I've notified the Little Acorns staff about it." This wording does not promise a reply (there is no reply channel) |
+| L | Exact escalation wording | **Revised (#25):** "Thanks for your question. I've notified the Little Acorns staff about it. If it's urgent, call (555) 014-2200." Still promises no reply (there is no reply channel), but always gives a next step |
 | M | "Add to KB" from a question | Always creates a **new** chunk. Existing chunks are edited in the Knowledge Base tab |
 | N | Adding a KB answer for a sensitive question (fever, custody…) | The question still escalates next time, because sensitive always escalates (non-negotiable). The UI tells the operator this |
 
@@ -134,7 +134,8 @@ Reads `.env` once with `load_dotenv()`. Every number that changes behavior lives
 | `SIMILARITY_CEILING` | `0.77` (calibrated) | raw cosine that maps to `semantic_score` 1.0 (#21) |
 | `SEMANTIC_WEIGHT` / `ADHERENCE_WEIGHT` | `0.35` / `0.65` | |
 | `CONFIDENCE_THRESHOLD` | `0.80` | combined score needed to answer a non-sensitive question |
-| `SENSITIVITY_THRESHOLD` | `0.70` | normalized sensitivity score at/above which a question is sensitive (#18) |
+| `SENSITIVITY_THRESHOLD` | `0.70` | normalized sensitivity score at/above which a question is sensitive, any category (#18) |
+| `SENSITIVE_CATEGORY_MIN_SCORE` | `3` | a non-`none` category counts as sensitive only at this raw score or above (#25) |
 | `FACT_TOKEN_MATCH_RATIO` | `0.7` | see adherence |
 | `ESCALATION_MESSAGE` | text from (L) | |
 | `KB_CATEGORIES` | `general, calendar, tuition, enrollment, health, meals, daily, safety, development, faq` | topic categories for chunks (not the same thing as sensitivity categories) |
@@ -208,7 +209,7 @@ The only module that imports `google.genai`. Tests mock these two functions.
 ### `sensitivity.py`
 - `classify(question) -> SensitivityResult`: **question only** (no chunks) goes to the model. The system instruction defines each category with one example.
 - `normalized(score) -> float` = `(score - 1) / 4` (1→0.0, 4→0.75, 5→1.0).
-- `is_sensitive(result) -> bool` = `result.category != "none" or normalized(result.score) >= SENSITIVITY_THRESHOLD` (decision #18). The raw 1–5 score is stored as the model returned it.
+- `is_sensitive(result) -> bool` = `(result.category != "none" and result.score >= SENSITIVE_CATEGORY_MIN_SCORE) or normalized(result.score) >= SENSITIVITY_THRESHOLD` (decisions #18, #25). The system instruction categorizes by what the parent needs (a person's judgement about a child) rather than by topic mentioned. The raw 1–5 score is stored as the model returned it.
 
 ### `generation.py`
 - `generate(question, chunks) -> GeneratedAnswer`. Receives the already-filtered `relevant(hits)`; each excerpt is labelled with its title. System instruction:
@@ -289,10 +290,10 @@ No test calls Gemini; `backend.gemini.embed` and `generate_structured` are monke
 - `test_urgency.py`: each phrase triggers; near-misses don't trigger (e.g. "nowhere" doesn't match "now").
 - `test_triage.py`: priority order 1–4 and the full sort order.
 - `test_kb.py`: data layer: `init_db` is idempotent; `seed_if_empty` seeds every handbook chunk in one `RETRIEVAL_DOCUMENT` embed call and is a no-op the second time; `create_chunk` slugs titles and de-duplicates ids; `update_chunk` re-embeds and bumps `updated_at`; delete; chunk listings never expose embeddings; `insert_log`/`list_logs` round-trip JSON + booleans and filter `needs_review`; `mark_resolved`.
-- `test_sensitivity.py`: `normalized()` maps 1→0.0 … 5→1.0; `is_sensitive()` is true for every non-`none` category at any score, and for `none` only at score ≥ 4 (the 0.70 boundary); `classify()` passes the schema and question-only prompt to `generate_structured` (mocked).
+- `test_sensitivity.py`: `normalized()` maps 1→0.0 … 5→1.0; `is_sensitive()`: a non-`none` category is sensitive at score ≥ 3 but not at 1–2; any category is sensitive at score ≥ 4 (the 0.70 boundary); `classify()` passes the schema and question-only prompt to `generate_structured` (mocked).
 - `test_retrieval.py`: `cosine()` basics; `retrieve()` returns top-`TOP_K` by cosine (embedder mocked); `semantic_score()` clamps at floor/ceiling; `is_out_of_scope()` boundary and empty KB; `relevant()` filters at the floor.
 - `test_generation.py`: the prompt contains the question and every excerpt labelled by title; the call uses the `GeneratedAnswer` schema and the grounding rules in the system instruction (generator mocked).
-- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes no LLM calls; sensitive questions escalate even at confidence 1.0; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row.
+- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes no LLM calls; sensitive questions escalate even at confidence 1.0; a category tag with score 2 (e.g. calling in sick) is answered if grounded; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row.
 - `test_api.py`: request/response shapes for every endpoint; add-to-kb creates a chunk and resolves the question.
 
 ---
@@ -310,7 +311,7 @@ Detailed build plan: `docs/plans/frontend-plan.md`.
   without env-var prefixes).
 - `display.js`: escalation-reason labels + detail lines, sensitivity-category labels,
   `timeAgo()`, `fmtScore()`. Shared by the queue, detail, and stats components.
-- `App.jsx`: routes `/` → `ParentChat`, `/operator` → `OperatorDashboard`.
+- `App.jsx`: routes `/` → `ParentChat`, `/operator` → `OperatorDashboard`, plus a view switcher bar ("Parent chat | Staff dashboard") shown at the top of both pages (#26).
 - `styles.css`: mobile-first, max content width 640px for the parent view and wider for the operator view, CSS variables for colors.
 
 **Parent view**

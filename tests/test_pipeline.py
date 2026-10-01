@@ -106,7 +106,7 @@ def test_generation_and_adherence_see_only_relevant_chunks(hits, fake_generate):
 @pytest.mark.parametrize("category", [c for c in SensitivityCategory if c is not SensitivityCategory.none])
 def test_sensitive_category_escalates_even_at_full_confidence(hits, fake_generate, category):
     hits([HOLIDAYS])
-    fake_generate.responses[SensitivityResult] = sens(category, 2)
+    fake_generate.responses[SensitivityResult] = sens(category, 3)
     fake_generate.responses[GeneratedAnswer] = ON_TOPIC_ANSWER
     res = answer_question("q")
     assert res.escalated and res.answer is None and res.sources == []
@@ -115,6 +115,17 @@ def test_sensitive_category_escalates_even_at_full_confidence(hits, fake_generat
     assert row["escalation_reason"] == "sensitive_forced"
     assert row["is_sensitive"] is True
     assert row["answer"] == ON_TOPIC_ANSWER.answer  # would-have-been answer kept for the operator
+
+
+def test_low_scored_category_tag_is_answered_when_grounded(hits, fake_generate):
+    # Decision log #25: "how do I call her in sick?" mentions health but is routine.
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens(SensitivityCategory.health, 2)
+    fake_generate.responses[GeneratedAnswer] = ON_TOPIC_ANSWER
+    res = answer_question("q")
+    assert not res.escalated
+    row = only_log_row()
+    assert row["is_sensitive"] is False and row["sensitivity_category"] == "health"
 
 
 @pytest.mark.parametrize("score, escalated", [(3, False), (4, True)])

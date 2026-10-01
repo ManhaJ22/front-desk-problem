@@ -42,6 +42,12 @@
     "content": "Tours are offered Tuesdays and Thursdays at 9:30 AM and 3:30 PM and last about 30 minutes. To schedule a tour, call the front office at (555) 014-2200 or book online at littleacorns.example/tour. Children are welcome on the tour. After the tour, families can join the waitlist with the $150 registration fee. Current wait times are typically 3 to 6 months for infants and 1 to 2 months for preschool."
   },
   {
+    "id": "absences",
+    "category": "daily",
+    "title": "Absences / Calling In Sick",
+    "content": "If your child will be absent, please let us know by 9:00 AM by messaging the front office through the brightwheel app or calling (555) 014-2200. Tell us the reason for the absence; if your child is sick, include their symptoms so we can watch for contagious illnesses in the classroom. Before your child returns after an illness, please check the Illness and Fever Policy. Tuition is not reduced for absences."
+  },
+  {
     "id": "illness-exclusion",
     "category": "health",
     "title": "Illness and Fever Policy",

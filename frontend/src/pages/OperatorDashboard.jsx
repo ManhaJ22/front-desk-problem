@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import * as api from "../api.js";
 import StatsBar from "../components/StatsBar.jsx";
 import QuestionQueue from "../components/QuestionQueue.jsx";
@@ -71,9 +70,6 @@ export default function OperatorDashboard() {
           <button type="button" className="btn" onClick={load} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </button>
-          <Link to="/" className="btn btn-link">
-            Parent view →
-          </Link>
         </div>
       </header>
 

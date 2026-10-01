@@ -414,6 +414,7 @@ Illness Policy ("24 hours fever-free") — the system has no conflict
 detection between KB entries (see limitations).
 
 ### 29. Out-of-scope questions skip sensitivity classification — 2026-10-01
+**Revised 2026-10-01 → see #38:** out-of-scope questions are now classified.
 (Architecture item B; kept as specced, user didn't change it when asked.)
 When nothing clears the similarity floor, no LLM call runs — including
 the sensitivity classifier. The question still escalates, and urgency
@@ -521,6 +522,28 @@ review every such question. The rationale shifted because a dead-end
 "staff notified" proved worse for an anxious parent than a grounded,
 clearly-sourced policy answer.
 
+### 38. Out-of-scope questions are still classified for sensitivity — revises #29 / CLAUDE.md step 2 — 2026-10-01
+Found in the deployed demo: "my child is currently experiencing bullying,
+can we get counseling?" matched nothing in the handbook, so the
+out-of-scope short-circuit skipped every LLM call — including the
+sensitivity classifier. It escalated, but as plain "Not in handbook":
+no sensitive badge, bottom triage tier. Sensitive topics are often
+exactly the ones a handbook doesn't cover, so the short-circuit hid the
+signal staff most need. (This was flagged as a trade-off twice during the
+build and kept as specced until the user hit it.)
+
+Rule now: out-of-scope questions run the classifier (one call) but still
+skip generation (nothing to ground an answer in). The log keeps both
+signals — `escalation_reason = out_of_scope` (why there's no answer) and
+`is_sensitive` / category (how urgently to look) — and triage ranks by
+sensitivity as usual. If the classification call fails, the question
+still escalates as `out_of_scope` (not `system_error`): the classifier
+is extra information here, not a requirement.
+
+Trade-off: one LLM call per out-of-scope question, including greetings
+and gibberish; the original "spend no calls on irrelevant questions"
+saving is reduced from two calls to one.
+
 ---
 
 ## Known limitations and trade-offs (summary for the write-up)
@@ -550,10 +573,17 @@ Grouped; numbers point to the decisions above.
   step or conflict detection — e.g. a staff entry ("doctor's note
   required") contradicted the seeded Illness Policy ("24 hours
   fever-free") and nothing flagged it.
-- Out-of-scope questions skip sensitivity, so off-handbook sensitive
-  questions are under-ranked in triage (#29).
+- Out-of-scope questions cost one LLM call (sensitivity) even when
+  they're off-topic noise (#38).
 - Greetings ("hello") escalate as out of scope and add queue noise —
   not handled.
+- Nonsense input (e.g. keyboard smash like "asdfjkl;") is treated like
+  any off-topic question: it fails the similarity floor and lands in the
+  staff dashboard as "Not in handbook". Minor edge case — parents asking
+  a daycare's front desk rarely send gibberish — but with more time we'd
+  filter it before it reaches staff (e.g. a cheap mechanical check for
+  too few real words, answered with a "Sorry, I didn't catch that"
+  prompt instead of an escalation).
 - Emergencies get the staff notice + phone number (and the handbook
   policy if it verifies, #37); no 911 / emergency routing.
 - Sensitive policy answers reach parents before a human reviews them

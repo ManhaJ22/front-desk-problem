@@ -78,8 +78,9 @@ def test_ask_answered_shape(client, answered):
     assert body["sources"] == [{"id": "holidays", "title": "Holiday Closures"}]
 
 
-def test_ask_escalated_shape_shows_only_message(client, monkeypatch):
+def test_ask_escalated_shape_shows_only_message(client, monkeypatch, fake_generate):
     monkeypatch.setattr(retrieval, "retrieve", lambda q: [])
+    fake_generate.responses[SensitivityResult] = SensitivityResult(category=SensitivityCategory.none, score=1, rationale="r")
     body = client.post("/api/ask", json={"question": "Do you offer swim lessons?"}).json()
     assert set(body) == ASK_KEYS
     assert body == {**body, "escalated": True, "answer": None, "message": config.ESCALATION_MESSAGE, "sources": []}

@@ -27,8 +27,11 @@ full reasoning behind every design choice below; this file states the
    see Tech Stack for exact model id), cosine-similarity against stored
    handbook chunk embeddings.
 2. **Out-of-scope short-circuit** — if nothing clears the similarity
-   floor, skip straight to an out-of-scope escalation message. Don't spend
-   two more LLM calls on a question with no relevant source.
+   floor, skip answer generation (there's no source to answer from) and
+   escalate as out-of-scope. **Sensitivity is still classified** (one LLM
+   call) so an off-handbook sensitive question — e.g. bullying — is marked
+   sensitive and triaged accordingly (decision log #38). If that call
+   fails, the question still escalates as out-of-scope.
 3. **Classify sensitivity** — one LLM call, structured output
    (`category`, `score` 1-5, one-sentence `rationale`). Categories:
    `health`, `safety`, `allergies`, `custody_legal`, `emotional_social`,

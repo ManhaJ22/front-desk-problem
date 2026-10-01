@@ -14,7 +14,7 @@ one has a default in the sections below.
 | # | Question | Default chosen |
 |---|---|---|
 | A | The CLAUDE.md schema has no column for urgency or escalation reason, but triage needs both | **Approved 2026-10-01**: added `is_urgent`, `escalation_reason` (and `sensitivity_rationale`) to `question_log`; CLAUDE.md updated (decision #14) |
-| B | Out-of-scope questions skip the sensitivity call (by design), so a sensitive question that matches nothing in the handbook is logged as *not sensitive* | Accept this. It is still escalated, and urgency (keyword-based, no API cost) is still detected. Mentioned in the write-up as a known limit |
+| B | Out-of-scope questions and the sensitivity call | **Revised (#38):** out-of-scope questions ARE classified for sensitivity (one call); only generation is skipped. A failed classification leaves them out-of-scope, not system_error |
 | C | The model returns zero `claimed_facts` | `adherence_score = 0.0` → always escalates. If the model makes no checkable claim, we can't verify the answer |
 | D | What `sensitivity_score` (1–5) is used for | **Revised (#18, #25):** `is_sensitive` = (`category != "none"` **and** `score ≥ 3`) **or** `(score − 1)/4 ≥ 0.70`. Sensitive always escalates; no separate 0.90 bar |
 | E | Gemini errors out (429 quota, timeout) | Escalate with `escalation_reason = "system_error"` and log the row. The parent sees the normal "staff notified" message |
@@ -246,7 +246,7 @@ The only module that imports `google.genai`. Tests mock these two functions.
 urgent = is_urgent(q)
 try:
   hits = retrieve(q)
-  if is_out_of_scope(hits):            → escalate("out_of_scope"); no LLM calls
+  if is_out_of_scope(hits):            → classify sensitivity (failure tolerated), escalate("out_of_scope"); no generation (#38)
   sens = classify(q)
   sensitive = is_sensitive(sens)        # category ≠ none OR normalized score ≥ 0.70 (D, #18)
   gen = generate(q, hits)               # runs even if sensitive (F)
@@ -297,7 +297,7 @@ No test calls Gemini; `backend.gemini.embed` and `generate_structured` are monke
 - `test_sensitivity.py`: `normalized()` maps 1→0.0 … 5→1.0; `is_sensitive()`: a non-`none` category is sensitive at score ≥ 3 but not at 1–2; any category is sensitive at score ≥ 4 (the 0.70 boundary); `classify()` passes the schema and question-only prompt to `generate_structured` (mocked).
 - `test_retrieval.py`: `cosine()` basics; `retrieve()` returns top-`TOP_K` by cosine (embedder mocked); `semantic_score()` clamps at floor/ceiling; `is_out_of_scope()` boundary and empty KB; `relevant()` filters at the floor.
 - `test_generation.py`: the prompt contains the question and every excerpt labelled by title; the call uses the `GeneratedAnswer` schema and the grounding rules in the system instruction (generator mocked).
-- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes no LLM calls; sensitive questions escalate even at confidence 1.0; a category tag with score 2 (e.g. calling in sick) is answered if grounded; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row.
+- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes exactly one LLM call (classification, never generation) and records sensitivity; a classification failure on an out-of-scope question stays `out_of_scope`; sensitive questions escalate even at confidence 1.0; a category tag with score 2 (e.g. calling in sick) is answered if grounded; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row.
 - `test_api.py`: request/response shapes for every endpoint; add-to-kb creates a chunk and resolves the question.
 
 ---

@@ -51,23 +51,46 @@ def only_log_row() -> dict:
 # --- out of scope ------------------------------------------------------------------------
 
 
-def test_out_of_scope_makes_no_llm_calls(hits, fake_generate):
+def test_out_of_scope_classifies_but_never_generates(hits, fake_generate):
     hits([FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = sens()
     res = answer_question("Do you offer swim lessons?")
     assert res.escalated and res.answer is None and res.message == config.ESCALATION_MESSAGE
-    assert fake_generate.calls == []
+    assert fake_generate.calls_for(SensitivityResult) == 1
+    assert fake_generate.calls_for(GeneratedAnswer) == 0  # nothing to ground an answer in
     row = only_log_row()
     assert row["escalation_reason"] == "out_of_scope"
-    assert row["sensitivity_category"] is None
+    assert row["sensitivity_category"] == "none" and row["is_sensitive"] is False
     assert row["semantic_score"] == 0.0
     assert row["retrieved_chunk_ids"] == []
 
 
+def test_out_of_scope_sensitive_question_is_marked_sensitive(hits, fake_generate):
+    # Decision log #38: "my child is being bullied, can we get counseling?" isn't in the handbook.
+    hits([FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = sens(SensitivityCategory.emotional_social, 4)
+    res = answer_question("my child is currently experiencing bullying, can we get counseling?")
+    assert res.escalated and res.answer is None
+    row = only_log_row()
+    assert row["escalation_reason"] == "out_of_scope"  # why there's no answer
+    assert row["is_sensitive"] is True and row["sensitivity_category"] == "emotional_social"  # how to triage
+
+
+def test_out_of_scope_classification_failure_stays_out_of_scope(hits, fake_generate):
+    hits([FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = GeminiError("429")
+    assert answer_question("q").escalated
+    row = only_log_row()
+    assert row["escalation_reason"] == "out_of_scope"
+    assert row["sensitivity_category"] is None
+
+
 def test_empty_knowledge_base_is_out_of_scope(hits, fake_generate):
     hits([])
+    fake_generate.responses[SensitivityResult] = sens()
     assert answer_question("Anything?").escalated
     assert only_log_row()["escalation_reason"] == "out_of_scope"
-    assert fake_generate.calls == []
+    assert fake_generate.calls_for(GeneratedAnswer) == 0
 
 
 # --- answered ------------------------------------------------------------------------------
@@ -236,8 +259,9 @@ def test_gemini_error_during_retrieval_escalates_as_system_error(monkeypatch):
     assert only_log_row()["escalation_reason"] == "system_error"
 
 
-def test_urgency_is_logged_on_every_path(hits):
+def test_urgency_is_logged_on_every_path(hits, fake_generate):
     hits([FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = sens()
     answer_question("Can I pick up early today?")
     assert only_log_row()["is_urgent"] is True
 

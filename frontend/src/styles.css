@@ -84,6 +84,7 @@ p { margin: 0; }
   padding: 16px; border-bottom: 1px solid var(--line);
   position: sticky; top: 0; background: var(--bg); z-index: 1;
 }
+.staff-link { margin-left: auto; font-size: 0.85rem; }
 .chat { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 
 .bubble {

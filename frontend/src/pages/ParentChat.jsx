@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ask, CENTER_PHONE } from "../api.js";
 import ChatMessage from "../components/ChatMessage.jsx";
 import SuggestedQuestions from "../components/SuggestedQuestions.jsx";
@@ -51,6 +52,10 @@ export default function ParentChat() {
           <h1>Little Acorns</h1>
           <p className="subtitle">Front Desk</p>
         </div>
+        {/* Demo navigation: a real parent-facing app wouldn't link to the staff view. */}
+        <Link to="/operator" className="btn btn-link staff-link">
+          Staff dashboard →
+        </Link>
       </header>
 
       <main className="chat" aria-live="polite">

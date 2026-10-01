@@ -84,6 +84,7 @@ const BLANK_LOG = {
   retrieved_chunk_ids: [],
   claimed_facts: [],
   unmatched_facts: [],
+  answer_shown: false,
   resolved: false,
 };
 
@@ -157,6 +158,7 @@ let questions = [
   log({
     created_at: minutesAgo(120),
     question: "Are you open on Veterans Day?",
+    answer_shown: true,
     answer:
       "Yes! Little Acorns is open on Veterans Day with normal hours, 7:00 AM to 6:00 PM.",
     sensitivity_category: "none",
@@ -227,6 +229,7 @@ export async function ask(question) {
   if (rule.kind === "answer") {
     entry = log({
       ...base,
+      answer_shown: true,
       answer: rule.answer,
       sensitivity_category: "none",
       sensitivity_score: 1,

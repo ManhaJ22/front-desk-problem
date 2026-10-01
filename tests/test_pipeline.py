@@ -80,6 +80,7 @@ def test_grounded_routine_question_is_answered_with_sources(hits, fake_generate)
     res = answer_question("Are you open on Veterans Day?")
     assert not res.escalated
     assert res.answer == ON_TOPIC_ANSWER.answer and res.message is None
+    assert only_log_row()["answer_shown"] is True
     assert [s.id for s in res.sources] == ["holidays"]  # only chunks that backed a matched fact
     row = only_log_row()
     assert row["escalated"] is False and row["escalation_reason"] is None
@@ -104,17 +105,43 @@ def test_generation_and_adherence_see_only_relevant_chunks(hits, fake_generate):
 
 
 @pytest.mark.parametrize("category", [c for c in SensitivityCategory if c is not SensitivityCategory.none])
-def test_sensitive_category_escalates_even_at_full_confidence(hits, fake_generate, category):
+def test_sensitive_verified_answer_is_shown_and_staff_notified(hits, fake_generate, category):
+    # Decision log #37: escalate to staff AND show the parent the verified answer.
     hits([HOLIDAYS])
     fake_generate.responses[SensitivityResult] = sens(category, 3)
     fake_generate.responses[GeneratedAnswer] = ON_TOPIC_ANSWER
     res = answer_question("q")
-    assert res.escalated and res.answer is None and res.sources == []
+    assert res.escalated
+    assert res.answer == ON_TOPIC_ANSWER.answer
+    assert res.message == config.SENSITIVE_ANSWER_NOTE
+    assert [s.id for s in res.sources] == ["holidays"]
     row = only_log_row()
-    assert row["combined_score"] == pytest.approx(1.0)
     assert row["escalation_reason"] == "sensitive_forced"
-    assert row["is_sensitive"] is True
-    assert row["answer"] == ON_TOPIC_ANSWER.answer  # would-have-been answer kept for the operator
+    assert row["is_sensitive"] is True and row["answer_shown"] is True
+    assert db.list_logs("needs_review")  # still in the staff queue
+
+
+def test_sensitive_unverified_answer_is_never_shown(hits, fake_generate):
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens(SensitivityCategory.health, 5)
+    fake_generate.responses[GeneratedAnswer] = GeneratedAnswer(
+        answer="Yes, open until 8:00 PM.", claimed_facts=["OPEN on Veterans Day", "open until 8:00 PM"]
+    )
+    res = answer_question("q")
+    assert res.escalated and res.answer is None and res.sources == []
+    assert res.message == config.ESCALATION_MESSAGE
+    row = only_log_row()
+    assert row["answer_shown"] is False
+    assert row["answer"] == "Yes, open until 8:00 PM."  # still logged for the operator
+
+
+def test_below_threshold_answer_is_never_shown(hits, fake_generate):
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens()
+    fake_generate.responses[GeneratedAnswer] = GeneratedAnswer(answer="Open until 8:00 PM.", claimed_facts=["open until 8:00 PM"])
+    res = answer_question("q")
+    assert res.escalated and res.answer is None and res.message == config.ESCALATION_MESSAGE
+    assert only_log_row()["answer_shown"] is False
 
 
 def test_low_scored_category_tag_is_answered_when_grounded(hits, fake_generate):
@@ -243,6 +270,7 @@ def test_sensitive_question_backed_by_seeded_handbook_still_escalates(hits, fake
     hits([SEEDED_ILLNESS])
     res = sick_question(fake_generate, "They must be fever-free for 24 hours.", ["fever-free for 24 hours before returning"])
     assert res.escalated
+    assert res.message == config.SENSITIVE_ANSWER_NOTE  # verified handbook answer shown + staff notified (#37)
     assert only_log_row()["escalation_reason"] == "sensitive_forced"
 
 

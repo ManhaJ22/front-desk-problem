@@ -32,9 +32,10 @@ export default function ParentChat() {
       const res = await ask(question);
       setMessages((m) => [
         ...m,
-        res.escalated
-          ? { kind: "escalated", text: res.message }
-          : { kind: "answer", text: res.answer, sources: res.sources },
+        res.answer
+          ? // Answered, or a sensitive question with a verified answer + staff note (decision log #37).
+            { kind: "answer", text: res.answer, sources: res.sources, note: res.escalated ? res.message : null }
+          : { kind: "escalated", text: res.message },
       ]);
     } catch {
       setMessages((m) => [...m, { kind: "error", text: ERROR_TEXT }]);

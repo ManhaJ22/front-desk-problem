@@ -137,7 +137,8 @@ Reads `.env` once with `load_dotenv()`. Every number that changes behavior lives
 | `SENSITIVITY_THRESHOLD` | `0.70` | normalized sensitivity score at/above which a question is sensitive, any category (#18) |
 | `SENSITIVE_CATEGORY_MIN_SCORE` | `3` | a non-`none` category counts as sensitive only at this raw score or above (#25) |
 | `FACT_TOKEN_MATCH_RATIO` | `0.7` | see adherence |
-| `ESCALATION_MESSAGE` | text from (L) | |
+| `ESCALATION_MESSAGE` | text from (L) | shown when no answer is shown |
+| `SENSITIVE_ANSWER_NOTE` | "I've also shared your question with the Little Acorns staff. If it's urgent, call (555) 014-2200." | shown under a verified answer to a sensitive question (#37) |
 | `KB_CATEGORIES` | `general, calendar, tuition, enrollment, health, meals, daily, safety, development, faq` | topic categories for chunks (not the same thing as sensitivity categories) |
 
 ### `db.py`
@@ -173,6 +174,7 @@ question_log(
   retrieved_chunk_ids TEXT,      -- JSON list[str]
   claimed_facts TEXT,            -- JSON list[str]
   unmatched_facts TEXT,          -- JSON list[str]
+  answer_shown INTEGER NOT NULL DEFAULT 0,  -- parent saw the generated answer (#37)
   resolved INTEGER NOT NULL DEFAULT 0
 )
 ```
@@ -258,7 +260,7 @@ try:
 except GeminiError / API error:          escalate("system_error")  (E)
 always: insert_log(...)
 ```
-Returns: answered → `answer` + `sources` (chunks that backed a matched fact, K); escalated → `answer = null`, `message = ESCALATION_MESSAGE`, `sources = []`.
+Returns: answered → `answer` + `sources` (chunks that backed a matched fact, K); escalated **only for sensitivity** with a fully verified answer (no unmatched facts/numbers, combined ≥ 0.80) → `answer` + `sources` + `message = SENSITIVE_ANSWER_NOTE`, logged `answer_shown = true` (#37); any other escalation → `answer = null`, `message = ESCALATION_MESSAGE`, `sources = []`.
 
 ### `routes/ask.py`, `routes/operator.py`, `main.py`
 - Routers mounted under `/api`.
@@ -269,7 +271,7 @@ Returns: answered → `answer` + `sources` (chunks that backed a matched fact, K
 | Method & path | Request | Response |
 |---|---|---|
 | `GET /api/health` | — | `{"ok": true}` |
-| `POST /api/ask` | `{question: str}` (1–500 chars, trimmed) | `{log_id, escalated, answer: str\|null, message: str\|null, sources: [{id, title}]}` |
+| `POST /api/ask` | `{question: str}` (1–500 chars, trimmed) | `{log_id, escalated, answer: str\|null, message: str\|null, sources: [{id, title}]}`. Three shapes: answered (`answer`, no `message`); escalated with verified answer (`answer` + `sources` + `message` = staff note, #37); escalated (`message` only) |
 | `GET /api/operator/questions?view=needs_review\|all` | default `needs_review` = escalated and unresolved | `[QuestionOut]`: every `question_log` column (JSON fields decoded) + `priority`, sorted by `triage.sort_queue` |
 | `POST /api/operator/questions/{id}/resolve` | — | `QuestionOut` |
 | `POST /api/operator/questions/{id}/add-to-kb` | `{category, title, content}` | `{chunk: ChunkOut, question: QuestionOut}` (also marks it resolved) |
@@ -319,7 +321,7 @@ Detailed build plan: `docs/plans/frontend-plan.md`.
 **Parent view**
 - `pages/ParentChat.jsx`: center name header; message list (kept in component state for the session only); text input with a 500-character limit; send is disabled while waiting, and a "Checking the handbook…" indicator shows.
 - `components/SuggestedQuestions.jsx`: chips for the five Brightwheel example questions, shown until the first message is sent.
-- `components/ChatMessage.jsx`: parent bubble / answer bubble with "From the handbook: <title>" tags / escalation bubble. The escalation bubble uses a calm, neutral style, not error red, and shows only `message`.
+- `components/ChatMessage.jsx`: parent bubble / answer bubble with "From the handbook: <title>" tags / escalation bubble. The escalation bubble uses a calm, neutral style, not error red, and shows only `message`. When a response has both `answer` and `message` (sensitive + verified, #37), it renders as an answer bubble with sources and the staff note underneath.
 - Network failure → "Sorry, something went wrong — please try again or call (555) 014-2200." This is the one place the frontend shows anything other than an answer or the escalation message.
 
 **Operator view**

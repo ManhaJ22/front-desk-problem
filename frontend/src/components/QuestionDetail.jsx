@@ -57,14 +57,18 @@ export default function QuestionDetail({ question: q, chunks, onResolve, onAddTo
       </p>
 
       <section>
-        <h3>{q.escalated ? "What the assistant would have said" : "What the parent saw"}</h3>
+        <h3>{q.answer_shown ? "What the parent saw" : "What the assistant would have said"}</h3>
         {q.answer ? (
           <p className="detail-answer">{q.answer}</p>
         ) : (
           <p className="muted">No answer was generated.</p>
         )}
         {q.escalated && (
-          <p className="muted small">The parent only saw the "staff has been notified" message.</p>
+          <p className="muted small">
+            {q.answer_shown
+              ? "The answer was fully verified, so the parent saw it along with a note that staff were notified."
+              : 'The parent only saw the "staff has been notified" message.'}
+          </p>
         )}
       </section>
 
@@ -92,9 +96,11 @@ export default function QuestionDetail({ question: q, chunks, onResolve, onAddTo
             value={q.combined_score}
             hint={
               sensitive
-                ? q.escalated
-                  ? "Sensitive — sent to staff"
-                  : "Sensitive — answered from a staff-written entry"
+                ? !q.escalated
+                  ? "Sensitive — answered from a staff-written entry"
+                  : q.answer_shown
+                    ? "Sensitive — answered and sent to staff"
+                    : "Sensitive — sent to staff"
                 : q.threshold_used != null
                   ? `Needs ${fmtScore(q.threshold_used)} to answer`
                   : null

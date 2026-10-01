@@ -96,6 +96,7 @@ class QuestionOut(BaseModel):
     retrieved_chunk_ids: list[str]
     claimed_facts: list[str]
     unmatched_facts: list[str]
+    answer_shown: bool  # parent saw the generated answer (decision log #37)
     resolved: bool
     priority: int
 

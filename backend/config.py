@@ -49,6 +49,10 @@ ESCALATION_MESSAGE = (
     "Thanks for your question. I've notified the Little Acorns staff about it. "
     "If it's urgent, call (555) 014-2200."
 )
+# Shown under a fully verified answer to a sensitive question, which still goes to staff (#37).
+SENSITIVE_ANSWER_NOTE = (
+    "I've also shared your question with the Little Acorns staff. If it's urgent, call (555) 014-2200."
+)
 
 # Topic categories for handbook chunks (not sensitivity categories). Mirrored in frontend/src/api.js.
 KB_CATEGORIES = [

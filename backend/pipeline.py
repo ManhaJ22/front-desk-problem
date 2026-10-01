@@ -66,12 +66,20 @@ def answer_question(question: str) -> AskResponse:
                 )
                 and not adherence.unsupported_numbers(gen.answer, staff_chunks)
             )
-            if sensitive and not (staff_backed and combined >= config.CONFIDENCE_THRESHOLD):
+            # A fully verified answer: every claimed fact and answer number checks out, bar cleared.
+            verified = bool(gen.claimed_facts) and not adh.unmatched and combined >= config.CONFIDENCE_THRESHOLD
+
+            if sensitive and not (staff_backed and verified):
                 log["escalation_reason"] = "sensitive_forced"
-            elif combined < config.CONFIDENCE_THRESHOLD:
+                # Show a verified answer AND notify staff (decision log #37); never an unverified one.
+                log["answer_shown"] = verified
+            elif not verified:
                 log["escalation_reason"] = "below_threshold"
             else:
                 log["escalated"] = False
+                log["answer_shown"] = True
+
+            if log.get("answer_shown"):
                 backing = {chunk_id for _, chunk_id in adh.matched}
                 sources = [Source(id=c.id, title=c.title) for c in context if c.id in backing]
 
@@ -81,6 +89,10 @@ def answer_question(question: str) -> AskResponse:
     # 8. Log everything
     log_id = db.insert_log(log)
 
-    if log["escalated"]:
-        return AskResponse(log_id=log_id, escalated=True, answer=None, message=config.ESCALATION_MESSAGE, sources=[])
-    return AskResponse(log_id=log_id, escalated=False, answer=log["answer"], message=None, sources=sources)
+    if not log["escalated"]:
+        return AskResponse(log_id=log_id, escalated=False, answer=log["answer"], message=None, sources=sources)
+    if log.get("answer_shown"):
+        return AskResponse(
+            log_id=log_id, escalated=True, answer=log["answer"], message=config.SENSITIVE_ANSWER_NOTE, sources=sources
+        )
+    return AskResponse(log_id=log_id, escalated=True, answer=None, message=config.ESCALATION_MESSAGE, sources=[])

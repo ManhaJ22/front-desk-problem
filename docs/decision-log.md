@@ -82,6 +82,7 @@ the semantic floor/ceiling are calibrated with
 Model ids live in `.env` so a renamed model doesn't require a code change.
 
 ### 8. Every escalation shows the parent only "staff has been notified" — 2026-10-01
+**Revised again → see #37:** sensitive questions with a fully verified answer now show it alongside the staff notice.
 **Revised 2026-10-01 → see #25:** the message now also gives the front-office
 phone number for anything urgent. Still no generated content on escalation.
 Out-of-scope, below-threshold, and sensitive escalations all show the
@@ -484,6 +485,33 @@ Trade-off: the fake embedder can't judge retrieval *quality* — that is
 measured only by calibration (#21) and live runs against real Gemini,
 which aren't automated (they'd need a key and quota in CI).
 
+### 37. Sensitive + verified: show the answer AND notify staff — revises #8 — 2026-10-01
+Found in the deployed demo: "my child is sick, what do I do?" had a fully
+grounded would-have-been answer (absence reporting by 9:00 AM via the
+app or (555) 014-2200, plus the fever / vomiting exclusion rules), yet
+the parent only saw "staff has been notified". The user asked "why not
+do both" — reversing their original #8 ("do not do anything else").
+
+Rule now: when the *only* reason to escalate is sensitivity, and the
+answer passed every mechanical check (all claimed facts matched, no
+unsupported numbers, combined ≥ 0.80), the parent sees the answer with
+its sources plus "I've also shared your question with the Little Acorns
+staff. If it's urgent, call (555) 014-2200." The question still escalates
+into the staff queue; `question_log.answer_shown` records that the
+parent saw it.
+
+Unchanged: out-of-scope, below-threshold, system-error, and sensitive
+questions whose answer didn't fully verify show only the staff message —
+an unverified answer is never shown (that would defeat #3 and #23).
+
+Trade-offs: parents now get handbook policy on sensitive topics without a
+human first — the original worry behind #8 (a parent acting on the
+automated part). Mitigated by: only verified handbook content is shown,
+the staff notice and phone number are always attached, and staff still
+review every such question. The rationale shifted because a dead-end
+"staff notified" proved worse for an anxious parent than a grounded,
+clearly-sourced policy answer.
+
 ---
 
 ## Known limitations and trade-offs (summary for the write-up)
@@ -517,8 +545,10 @@ Grouped; numbers point to the decisions above.
   questions are under-ranked in triage (#29).
 - Greetings ("hello") escalate as out of scope and add queue noise —
   not handled.
-- Emergencies only get "staff notified + call (555) 014-2200"; no 911 /
-  emergency routing (#8, #25).
+- Emergencies get the staff notice + phone number (and the handbook
+  policy if it verifies, #37); no 911 / emergency routing.
+- Sensitive policy answers reach parents before a human reviews them
+  (verified handbook content only, staff still notified) (#37).
 - No follow-up channel to the parent who asked; fixes help the *next*
   parent (#9, #17).
 - Urgency is static keywords: "today" flags routine questions as urgent;

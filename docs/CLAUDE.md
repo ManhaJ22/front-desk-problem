@@ -74,13 +74,20 @@ full reasoning behind every design choice below; this file states the
 
 ## Escalation behavior (what the parent sees, and what happens next)
 
-- Every escalation path — out-of-scope, below-threshold, or sensitive —
-  shows the parent the **same thing: a message that staff has been
-  notified, plus the front-office phone number for anything urgent**
-  ("…If it's urgent, call (555) 014-2200." — decision log #25). Nothing
-  else. In particular, a sensitive question does
-  **not** get the generated answer or handbook excerpt shown alongside
-  the notice, even if a grounded answer exists.
+- **Sensitive + fully verified answer → answer AND notify staff**
+  (decision log #37, revising #8): if a question escalates only because
+  it's sensitive, and its answer passed every check (all claimed facts
+  matched, no unsupported numbers, combined confidence ≥ 0.80), the
+  parent sees the answer with its handbook sources plus a note: "I've
+  also shared your question with the Little Acorns staff. If it's urgent,
+  call (555) 014-2200." The question still lands in the staff queue
+  (`escalated = true`, `answer_shown = true`).
+- **Every other escalation** — out-of-scope, below-threshold, system
+  error, or sensitive with an answer that didn't fully verify — shows
+  only the staff-notified message with the phone number (#25). An
+  unverified answer is never shown.
+- Sensitive questions fully backed by staff-written entries are simply
+  answered, without notifying staff (#28).
 - There is no reply channel back to the parent. The loop closes through
   the operator: they review the escalated question in the dashboard and
   either **mark it resolved** or **add an answer to the knowledge base**
@@ -121,12 +128,14 @@ question_log(
   is_sensitive, is_urgent, sensitivity_category, sensitivity_score,
   sensitivity_rationale, semantic_score, adherence_score,
   combined_score, threshold_used, retrieved_chunk_ids, claimed_facts,
-  unmatched_facts, resolved
+  unmatched_facts, answer_shown, resolved
 )
 ```
 
 `escalation_reason` is one of `out_of_scope`, `sensitive_forced`,
-`below_threshold`, `system_error` (NULL when answered). Full column types
+`below_threshold`, `system_error` (NULL when answered). `answer_shown`
+is true when the parent saw the generated answer (answered, or escalated
+with a verified answer — #37). Full column types
 are in `docs/architecture.md` (decision log #14).
 
 ## Tech stack

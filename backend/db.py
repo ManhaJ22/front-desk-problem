@@ -37,12 +37,13 @@ CREATE TABLE IF NOT EXISTS question_log (
   retrieved_chunk_ids TEXT NOT NULL DEFAULT '[]',
   claimed_facts TEXT NOT NULL DEFAULT '[]',
   unmatched_facts TEXT NOT NULL DEFAULT '[]',
+  answer_shown INTEGER NOT NULL DEFAULT 0,  -- parent saw the generated answer (decision log #37)
   resolved INTEGER NOT NULL DEFAULT 0
 );
 """
 
 LOG_JSON_FIELDS = ("retrieved_chunk_ids", "claimed_facts", "unmatched_facts")
-LOG_BOOL_FIELDS = ("escalated", "is_sensitive", "is_urgent", "resolved")
+LOG_BOOL_FIELDS = ("escalated", "is_sensitive", "is_urgent", "answer_shown", "resolved")
 
 
 def now_iso() -> str:
@@ -68,10 +69,14 @@ def _execute(sql: str, params: tuple = ()) -> sqlite3.Cursor:
 def init_db() -> None:
     with closing(get_conn()) as conn, conn:
         conn.executescript(SCHEMA)
-        # Migrate databases created before decision log #28 (persistent disk keeps old files).
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(handbook_chunks)")}
-        if "source" not in columns:
-            conn.execute("ALTER TABLE handbook_chunks ADD COLUMN source TEXT NOT NULL DEFAULT 'handbook'")
+        # Migrate databases created before later columns existed (the persistent disk keeps old files).
+        _add_column_if_missing(conn, "handbook_chunks", "source", "TEXT NOT NULL DEFAULT 'handbook'")  # #28
+        _add_column_if_missing(conn, "question_log", "answer_shown", "INTEGER NOT NULL DEFAULT 0")  # #37
+
+
+def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
 # --- handbook_chunks ---------------------------------------------------------------

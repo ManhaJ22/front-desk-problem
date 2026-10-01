@@ -1,7 +1,8 @@
 // One chat bubble. Kinds: "parent", "answer", "escalated", "error".
-// An escalated message renders ONLY its message text (decision log #8).
+// "escalated" renders only its message (no verified answer). An "answer" may carry a staff
+// note when a sensitive question was also sent to staff (decision log #37).
 export default function ChatMessage({ message }) {
-  const { kind, text, sources = [] } = message;
+  const { kind, text, sources = [], note } = message;
 
   if (kind === "parent") {
     return <div className="bubble bubble-parent">{text}</div>;
@@ -32,6 +33,7 @@ export default function ChatMessage({ message }) {
           ))}
         </div>
       )}
+      {note && <p className="bubble-note">{note}</p>}
     </div>
   );
 }

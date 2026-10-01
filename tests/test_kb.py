@@ -174,3 +174,16 @@ def test_init_db_migrates_pre_source_databases():
         conn.execute("INSERT INTO handbook_chunks VALUES ('old', 'faq', 'Old', 'Old entry', '[1.0]', '2026-01-01')")
     db.init_db()
     assert db.get_chunk("old")["source"] == "handbook"
+
+
+def test_init_db_migrates_pre_answer_shown_logs():
+    import sqlite3
+
+    with sqlite3.connect(config.DB_PATH) as conn:  # simulate a question_log created before #37
+        conn.execute("DROP TABLE question_log")
+        conn.execute("CREATE TABLE question_log (id INTEGER PRIMARY KEY, created_at TEXT, question TEXT, escalated INTEGER, "
+                     "retrieved_chunk_ids TEXT DEFAULT '[]', claimed_facts TEXT DEFAULT '[]', unmatched_facts TEXT DEFAULT '[]', "
+                     "is_sensitive INTEGER DEFAULT 0, is_urgent INTEGER DEFAULT 0, resolved INTEGER DEFAULT 0)")
+        conn.execute("INSERT INTO question_log (created_at, question, escalated) VALUES ('2026-01-01', 'old', 1)")
+    db.init_db()
+    assert db.list_logs("all")[0]["answer_shown"] is False

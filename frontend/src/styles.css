@@ -110,6 +110,10 @@ p { margin: 0; }
   text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;
 }
 .typing { color: var(--muted); font-style: italic; }
+.bubble-note {
+  margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 0.85rem; color: var(--escalate-ink);
+}
 
 .sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .source-tag {

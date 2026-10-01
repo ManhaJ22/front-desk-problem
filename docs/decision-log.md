@@ -377,6 +377,15 @@ because seeding only runs on an empty table, later edits to
 `data/handbook.json` no longer reach the deployed DB automatically —
 handbook changes go through the dashboard (or a deliberate DB reset).
 The paid instance also never sleeps, removing slow cold starts.
+**Follow-up (same day):** data still reset after the plan upgrade. The
+service had been created as a plain Web Service, not via New → Blueprint
+(evidence: Render never prompted for the `sync: false` API key, causing
+the first failed deploy), so `render.yaml` — including the `disk` and
+`DB_PATH` — was never applied; upgrading the instance alone doesn't make
+the filesystem persistent. Fix: add the disk (`/var/data`) and `DB_PATH`
+in the dashboard (or recreate the service as a Blueprint).
+`/api/health` now returns `db_path` so persistence can be verified from
+outside.
 
 ### 28. Staff-written answers win over the sensitivity rule — 2026-10-01
 Found in the deployed demo: the operator added a "Sick child" entry,

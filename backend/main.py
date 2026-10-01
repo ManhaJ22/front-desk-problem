@@ -39,7 +39,8 @@ async def gemini_unavailable(request: Request, exc: GeminiError) -> JSONResponse
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True}
+    # db_path lets you confirm the deployed DB is on the persistent disk (/var/data/..., decision log #27).
+    return {"ok": True, "db_path": str(Path(config.DB_PATH).resolve())}
 
 
 app.include_router(ask.router, prefix="/api")

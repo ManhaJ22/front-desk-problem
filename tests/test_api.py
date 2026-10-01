@@ -55,7 +55,8 @@ def escalate_one(question: str = "Do you offer swim lessons?") -> int:
 
 
 def test_startup_seeds_handbook_and_health_ok(client):
-    assert client.get("/api/health").json() == {"ok": True}
+    body = client.get("/api/health").json()
+    assert body["ok"] is True and body["db_path"].endswith("test.db")
     assert len(client.get("/api/operator/kb").json()) == handbook_size()
 
 

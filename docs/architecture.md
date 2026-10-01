@@ -270,7 +270,7 @@ Returns: answered → `answer` + `sources` (chunks that backed a matched fact, K
 
 | Method & path | Request | Response |
 |---|---|---|
-| `GET /api/health` | — | `{"ok": true}` |
+| `GET /api/health` | — | `{"ok": true, "db_path": "<absolute path>"}` (confirms the DB is on the persistent disk, #27) |
 | `POST /api/ask` | `{question: str}` (1–500 chars, trimmed) | `{log_id, escalated, answer: str\|null, message: str\|null, sources: [{id, title}]}`. Three shapes: answered (`answer`, no `message`); escalated with verified answer (`answer` + `sources` + `message` = staff note, #37); escalated (`message` only) |
 | `GET /api/operator/questions?view=needs_review\|all` | default `needs_review` = escalated and unresolved | `[QuestionOut]`: every `question_log` column (JSON fields decoded) + `priority`, sorted by `triage.sort_queue` |
 | `POST /api/operator/questions/{id}/resolve` | — | `QuestionOut` |

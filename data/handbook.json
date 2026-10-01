@@ -1,0 +1,128 @@
+[
+  {
+    "id": "contact-hours",
+    "category": "general",
+    "title": "Contact Information and Hours",
+    "content": "Little Acorns Early Learning Center is located at 412 Maple Grove Lane, Brookhaven. The front office phone number is (555) 014-2200 and the email is hello@littleacorns.example. The center is open Monday through Friday from 7:00 AM to 6:00 PM. The front office is staffed from 7:00 AM to 6:00 PM. The center is closed on Saturdays and Sundays."
+  },
+  {
+    "id": "holidays",
+    "category": "calendar",
+    "title": "Holiday Closures",
+    "content": "Little Acorns is closed on the following holidays: New Year's Day, Martin Luther King Jr. Day, Memorial Day, Juneteenth, Independence Day, Labor Day, Thanksgiving Day and the Friday after Thanksgiving, Christmas Eve, and Christmas Day. Little Acorns is OPEN on Veterans Day, Presidents' Day, Columbus Day / Indigenous Peoples' Day, and Good Friday, with normal hours of 7:00 AM to 6:00 PM. Tuition is not reduced for holiday closures."
+  },
+  {
+    "id": "professional-days",
+    "category": "calendar",
+    "title": "Staff Professional Development Days",
+    "content": "The center closes for two staff professional development days each year: the third Friday in January and the third Friday in August. Families receive a reminder on the brightwheel app at least 30 days before each closure. Tuition is not reduced for professional development days."
+  },
+  {
+    "id": "weather-closures",
+    "category": "calendar",
+    "title": "Weather and Emergency Closures",
+    "content": "If the Brookhaven Unified School District closes for snow or severe weather, Little Acorns also closes. Delayed openings follow the district: if the district opens 2 hours late, Little Acorns opens at 9:00 AM. Closure and delay announcements are sent through the brightwheel app by 6:00 AM. Tuition is not reduced for weather or emergency closures."
+  },
+  {
+    "id": "tuition",
+    "category": "tuition",
+    "title": "Monthly Tuition by Age Group",
+    "content": "Full-time monthly tuition (5 days per week) is: Infants (6 weeks to 12 months) $2,150 per month; Toddlers (12 to 24 months) $1,950 per month; Twos (24 to 36 months) $1,750 per month; Preschool (3 to 4 years) $1,550 per month; Pre-K (4 to 5 years) $1,450 per month. Part-time enrollment (3 days per week, Monday/Wednesday/Friday) is available for Twos, Preschool, and Pre-K at 70% of the full-time rate. Infants and Toddlers are full-time only."
+  },
+  {
+    "id": "billing",
+    "category": "tuition",
+    "title": "Billing, Fees, and Discounts",
+    "content": "Tuition is billed on the 1st of each month through brightwheel and is due by the 5th. A late payment fee of $35 is charged if tuition is not paid by the 5th. There is a one-time, non-refundable registration fee of $150 per child and an annual supply fee of $100, billed each September. A 10% sibling discount applies to the tuition of the older sibling when two or more children are enrolled. Withdrawal requires 30 days' written notice."
+  },
+  {
+    "id": "enrollment-tours",
+    "category": "enrollment",
+    "title": "Enrollment and Scheduling a Tour",
+    "content": "Tours are offered Tuesdays and Thursdays at 9:30 AM and 3:30 PM and last about 30 minutes. To schedule a tour, call the front office at (555) 014-2200 or book online at littleacorns.example/tour. Children are welcome on the tour. After the tour, families can join the waitlist with the $150 registration fee. Current wait times are typically 3 to 6 months for infants and 1 to 2 months for preschool."
+  },
+  {
+    "id": "illness-exclusion",
+    "category": "health",
+    "title": "Illness and Fever Policy",
+    "content": "Children with a fever of 100.4°F or higher may not attend and must be fever-free for 24 hours without fever-reducing medication (such as Tylenol or Motrin) before returning. Children must also stay home for vomiting or diarrhea and may return 24 hours after the last episode. If a child develops a fever of 100.4°F or higher at the center, a parent will be called and the child must be picked up within 1 hour. Children with pink eye may return after 24 hours on prescribed treatment. A doctor's note may be requested for contagious illnesses."
+  },
+  {
+    "id": "medication",
+    "category": "health",
+    "title": "Medication Administration",
+    "content": "Staff can give prescription and over-the-counter medication only with a signed Medication Authorization Form, available from the front office or in the brightwheel app. Medication must be in its original container labeled with the child's name. Fever-reducing medication is not given to mask a fever so a child can stay at the center. Sunscreen and diaper cream require a one-time signed permission form."
+  },
+  {
+    "id": "allergies",
+    "category": "health",
+    "title": "Allergies and Nut-Free Policy",
+    "content": "Little Acorns is a nut-free center. Food containing peanuts or tree nuts may not be brought into the building. Families of children with allergies must submit an Allergy Action Plan signed by the child's doctor before the first day. Children with prescribed epinephrine auto-injectors (EpiPens) must keep two unexpired auto-injectors at the center at all times. Allergy information is posted in each classroom and the kitchen."
+  },
+  {
+    "id": "meals-snacks",
+    "category": "meals",
+    "title": "Meals and Snacks",
+    "content": "Little Acorns provides a morning snack at 9:30 AM and an afternoon snack at 3:00 PM for all children, at no extra cost. Families pack lunch from home for children 12 months and older. Lunch is served at 11:30 AM. Lunches should be labeled with the child's name; refrigeration is available. Infant families provide breast milk or formula and baby food; staff follow each infant's individual feeding schedule."
+  },
+  {
+    "id": "forgotten-lunch",
+    "category": "meals",
+    "title": "Forgotten Lunch / Backup Lunch",
+    "content": "If you forget to pack lunch, the center can provide a backup lunch for $6, added to your next bill. Please let the front office know by 10:00 AM by calling (555) 014-2200 or messaging through the brightwheel app. The backup lunch is the same every day: a sunflower-butter and jelly sandwich on whole wheat bread (or a cheese quesadilla for children who prefer it), sliced apples, and whole milk (2% milk for children over 2). The backup lunch is nut-free. Backup lunches are not provided for infants."
+  },
+  {
+    "id": "dropoff-pickup",
+    "category": "daily",
+    "title": "Drop-off and Pick-up",
+    "content": "Drop-off is between 7:00 AM and 9:30 AM. Children arriving after 9:30 AM should be signed in at the front office. Parents check children in and out using the brightwheel app at the front door kiosk. Please walk your child to their classroom and hand off to a teacher. Pick-up is any time before 6:00 PM. If you need to pick up early, let the front office know so your child is ready."
+  },
+  {
+    "id": "late-pickup",
+    "category": "daily",
+    "title": "Late Pick-up Fee",
+    "content": "The center closes at 6:00 PM. A late pick-up fee of $1 per minute per child is charged starting at 6:01 PM, added to your next bill. If you know you will be late, please call (555) 014-2200. If a child has not been picked up by 6:30 PM and no parent or emergency contact can be reached, the center will follow its emergency procedures."
+  },
+  {
+    "id": "authorized-pickup",
+    "category": "safety",
+    "title": "Authorized Pick-up and Custody",
+    "content": "Children are released only to parents/guardians and adults listed as authorized pick-ups in the brightwheel app. Authorized adults must show a photo ID the first time they pick up. To add a one-time pick-up person, notify the front office in writing through the brightwheel app before pick-up. If there is a custody order or restraining order, a copy must be on file with the center director; staff follow the most recent court order on file. Staff cannot withhold a child from a legal parent without a court order on file."
+  },
+  {
+    "id": "what-to-bring",
+    "category": "daily",
+    "title": "What to Bring",
+    "content": "Please bring a labeled change of clothes (two sets for toddlers and children who are potty training), a small blanket for nap time, and a refillable water bottle. Infants need diapers, wipes, bottles, and a sleep sack (no loose blankets for infants). Toddlers and twos need diapers or pull-ups and wipes. Please send weather-appropriate outdoor clothing; children play outside twice a day unless it is below 20°F or above 95°F, or raining."
+  },
+  {
+    "id": "naps",
+    "category": "daily",
+    "title": "Nap and Rest Time",
+    "content": "Rest time is from 12:30 PM to 2:30 PM for toddlers, twos, and preschool. Children who do not sleep after 30 minutes may do quiet activities on their cot. Pre-K rest time is 1:00 PM to 2:00 PM. Infants sleep on their own schedule, always on their backs in a crib, following safe sleep guidelines."
+  },
+  {
+    "id": "potty-training",
+    "category": "development",
+    "title": "Potty Training",
+    "content": "Teachers partner with families on potty training, usually starting in the Twos classroom. Children do not need to be potty trained to move into Preschool. During potty training, please send pull-ups and at least two extra sets of clothes. Teachers log every diaper change and bathroom visit in the brightwheel app."
+  },
+  {
+    "id": "behavior",
+    "category": "development",
+    "title": "Behavior Guidance and Biting",
+    "content": "Little Acorns uses positive behavior guidance: redirection, modeling, and naming feelings. Time-outs are not used for children under 3. Biting is common among toddlers; when a bite happens, both families are notified the same day through the brightwheel app, and the names of other children are kept confidential. If behavior concerns continue, teachers will request a family conference."
+  },
+  {
+    "id": "communication",
+    "category": "general",
+    "title": "Family Communication",
+    "content": "Teachers share daily reports, photos, meals, naps, and diaper changes through the brightwheel app. Messages sent through the app are answered within one business day. Parent-teacher conferences are held twice a year, in November and April. For urgent matters during the day, call the front office at (555) 014-2200."
+  },
+  {
+    "id": "staff-ratios",
+    "category": "general",
+    "title": "Classrooms and Teacher Ratios",
+    "content": "Teacher-to-child ratios at Little Acorns are: Infants 1:4, Toddlers 1:5, Twos 1:6, Preschool 1:8, Pre-K 1:10. All lead teachers hold CPR and First Aid certification and complete 24 hours of training each year. Children move up to the next classroom based on age and readiness, usually in August."
+  }
+]

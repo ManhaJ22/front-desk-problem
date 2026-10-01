@@ -4,7 +4,7 @@
 
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 
-// Mirrors app/config.py. Keep in sync.
+// Mirrors backend/config.py. Keep in sync.
 export const KB_CATEGORIES = [
   "general",
   "calendar",

@@ -290,7 +290,7 @@ function priority(q) {
   return 4;
 }
 
-// Same ordering as app/triage.py sort_queue.
+// Same ordering as backend/triage.py sort_queue.
 function sortQueue(rows) {
   return [...rows].sort(
     (a, b) =>

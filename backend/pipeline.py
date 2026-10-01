@@ -53,8 +53,20 @@ def answer_question(question: str) -> AskResponse:
                 threshold_used=config.CONFIDENCE_THRESHOLD,
             )
 
-            # 7. Sensitive always escalates; otherwise the confidence bar decides
-            if sensitive:
+            # 7. Sensitive escalates unless staff already answered it in the KB (decision log #28):
+            #    every claimed fact AND every number in the answer is supported by staff-written chunks.
+            staff_chunks = [c for c in context if c.source == "staff"]
+            staff_backed = (
+                bool(staff_chunks)
+                and bool(gen.claimed_facts)
+                and not adh.unmatched
+                and all(
+                    any(adherence.fact_matches(f, f"{c.title}\n{c.content}") for c in staff_chunks)
+                    for f in gen.claimed_facts
+                )
+                and not adherence.unsupported_numbers(gen.answer, staff_chunks)
+            )
+            if sensitive and not (staff_backed and combined >= config.CONFIDENCE_THRESHOLD):
                 log["escalation_reason"] = "sensitive_forced"
             elif combined < config.CONFIDENCE_THRESHOLD:
                 log["escalation_reason"] = "below_threshold"

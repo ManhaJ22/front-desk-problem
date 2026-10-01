@@ -1,17 +1,23 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 # One service: FastAPI serves the JSON API under /api and the built React app for every
-# other path (backend/main.py). See docs/architecture.md "Deploy" and decision log #11, #24.
+# other path (backend/main.py). See docs/architecture.md "Deploy" and decision log #24, #27.
 services:
   - type: web
     name: little-acorns-front-desk
     runtime: python
-    plan: free
+    # Paid instance: persistent disks aren't available on the free plan (decision log #27).
+    plan: 0.5c-512mb
     region: oregon
     # Node/npm are preinstalled in Render's native runtimes. --include=dev because Vite is a devDependency.
     buildCommand: pip install -r requirements.txt && cd frontend && npm ci --include=dev && npm run build
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     autoDeployTrigger: commit
+    # Only this path survives restarts/redeploys. The build step can't see it; seeding runs at startup.
+    disk:
+      name: front-desk-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       # Secret: Render prompts for it on first Blueprint deploy; never committed.
       - key: GEMINI_API_KEY
@@ -21,5 +27,6 @@ services:
         value: gemini-3.5-flash-lite
       - key: GEMINI_EMBEDDING_MODEL
         value: gemini-embedding-001
-# Free plan: no persistent disk. SQLite (KB edits + question log) resets on every
-# restart/redeploy/spin-down; the handbook re-seeds from data/handbook.json on boot (#11).
+      # SQLite on the persistent disk: KB edits and the question log survive (decision log #27).
+      - key: DB_PATH
+        value: /var/data/front_desk.db

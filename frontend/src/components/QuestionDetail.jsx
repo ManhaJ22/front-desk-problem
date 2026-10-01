@@ -92,7 +92,9 @@ export default function QuestionDetail({ question: q, chunks, onResolve, onAddTo
             value={q.combined_score}
             hint={
               sensitive
-                ? "Sensitive — always sent to staff"
+                ? q.escalated
+                  ? "Sensitive — sent to staff"
+                  : "Sensitive — answered from a staff-written entry"
                 : q.threshold_used != null
                   ? `Needs ${fmtScore(q.threshold_used)} to answer`
                   : null
@@ -134,7 +136,7 @@ export default function QuestionDetail({ question: q, chunks, onResolve, onAddTo
               saving={busy}
               note={
                 sensitive
-                  ? "Sensitive questions are always sent to staff, even with a handbook answer. Adding one still helps related everyday questions get answered."
+                  ? "This is a sensitive question. Once it's in the handbook as a staff-written entry, the assistant can answer it next time — but only if every fact in its answer comes from staff-written entries."
                   : "Next time a parent asks this, the assistant can answer from this entry."
               }
               onSave={(data) => run(() => onAddToKb(q.id, data))}

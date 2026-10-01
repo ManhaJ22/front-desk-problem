@@ -26,7 +26,7 @@ one has a default in the sections below.
 | K | What a parent sees on an answered question | The answer, plus "From the handbook: <title>" for each chunk that backed at least one matched fact |
 | L | Exact escalation wording | **Revised (#25):** "Thanks for your question. I've notified the Little Acorns staff about it. If it's urgent, call (555) 014-2200." Still promises no reply (there is no reply channel), but always gives a next step |
 | M | "Add to KB" from a question | Always creates a **new** chunk. Existing chunks are edited in the Knowledge Base tab |
-| N | Adding a KB answer for a sensitive question (fever, custody…) | The question still escalates next time, because sensitive always escalates (non-negotiable). The UI tells the operator this |
+| N | Adding a KB answer for a sensitive question (fever, custody…) | **Revised (#28):** staff-written answers win — the question is answered next time if every fact is verified against staff-written entries. The editor note says so |
 
 ---
 
@@ -39,7 +39,7 @@ front-desk-problem/
 ├── .gitignore
 ├── requirements.txt
 ├── pytest.ini                    # pythonpath = . so `pytest tests/` can import backend
-├── render.yaml                   # Render Blueprint: one free Python web service (decision #24)
+├── render.yaml                   # Render Blueprint: one paid Python web service + persistent disk (#24, #27)
 ├── .python-version               # 3.14, so Render matches local
 ├── data/
 │   └── handbook.json             # mock handbook, seed for handbook_chunks
@@ -150,6 +150,7 @@ handbook_chunks(
   category TEXT NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'handbook',  -- 'handbook' (seeded) | 'staff' (dashboard create/edit) #28
   embedding TEXT NOT NULL,       -- JSON list[float]
   updated_at TEXT NOT NULL       -- ISO-8601 UTC
 )
@@ -175,7 +176,7 @@ question_log(
   resolved INTEGER NOT NULL DEFAULT 0
 )
 ```
-- Helper functions only (no business logic): `list_chunks()`, `get_chunk(id)`, `upsert_chunk(...)`, `delete_chunk(id)`, `count_chunks()`, `insert_log(dict) -> id`, `list_logs()`, `get_log(id)`, `mark_resolved(id)`.
+- Helper functions only (no business logic): `list_chunks()`, `get_chunk(id)`, `upsert_chunk(..., source)`, `delete_chunk(id)`, `count_chunks()`; `init_db()` also adds the `source` column to pre-#28 databases, `insert_log(dict) -> id`, `list_logs()`, `get_log(id)`, `mark_resolved(id)`.
 
 ### `schemas.py`
 LLM output models (passed as `response_schema`):
@@ -194,8 +195,8 @@ The only module that imports `google.genai`. Tests mock these two functions.
 - `seed_if_empty()`: if `count_chunks() == 0`, load `data/handbook.json`, embed all chunks in one call (text = `title + "\n\n" + content`), insert. Called at startup. On the Render free tier this runs on every cold boot (decision #11).
 
 ### `kb.py`
-- `create_chunk(category, title, content) -> ChunkOut`: id = slugified title, with `-2`, `-3`… added on collision; embeds, then inserts.
-- `update_chunk(id, category, title, content) -> ChunkOut`: re-embeds and updates `updated_at`.
+- `create_chunk(category, title, content) -> ChunkOut`: `source = staff` (#28); id = slugified title, with `-2`, `-3`… added on collision; embeds, then inserts.
+- `update_chunk(id, category, title, content) -> ChunkOut`: re-embeds, updates `updated_at`, and sets `source = staff` (editing a seeded entry is a staff judgement, #28).
 - `delete_chunk(id)`.
 - Embedding text is always `title + "\n\n" + content` (same as seed).
 
@@ -250,7 +251,8 @@ try:
   adh = check(gen.claimed_facts, hits)
   sem = semantic_score(hits[0].cosine)
   combined = 0.35*sem + 0.65*adh.score
-  if sensitive:                escalate("sensitive_forced")
+  staff_backed = every claimed fact matched, every match in a source='staff' chunk, no bad numbers  (#28)
+  if sensitive and not (staff_backed and combined >= 0.80): escalate("sensitive_forced")
   elif combined < 0.80:        escalate("below_threshold")
   else:                        answer
 except GeminiError / API error:          escalate("system_error")  (E)
@@ -271,7 +273,7 @@ Returns: answered → `answer` + `sources` (chunks that backed a matched fact, K
 | `GET /api/operator/questions?view=needs_review\|all` | default `needs_review` = escalated and unresolved | `[QuestionOut]`: every `question_log` column (JSON fields decoded) + `priority`, sorted by `triage.sort_queue` |
 | `POST /api/operator/questions/{id}/resolve` | — | `QuestionOut` |
 | `POST /api/operator/questions/{id}/add-to-kb` | `{category, title, content}` | `{chunk: ChunkOut, question: QuestionOut}` (also marks it resolved) |
-| `GET /api/operator/kb` | — | `[ChunkOut]` = `{id, category, title, content, updated_at}` (no embedding) |
+| `GET /api/operator/kb` | — | `[ChunkOut]` = `{id, category, title, content, source, updated_at}` (no embedding) |
 | `POST /api/operator/kb` | `{category, title, content}` | `ChunkOut` |
 | `PUT /api/operator/kb/{id}` | `{category, title, content}` | `ChunkOut` |
 | `DELETE /api/operator/kb/{id}` | — | `204` |
@@ -331,12 +333,12 @@ Detailed build plan: `docs/plans/frontend-plan.md`.
 ---
 
 ## Deploy (`render.yaml`)
-One Python web service, `plan: free`, defined as a Render Blueprint (decision #24).
+One Python web service, paid `plan: 0.5c-512mb` with a 1 GB persistent disk at `/var/data`, defined as a Render Blueprint (decisions #24, #27).
 - Build: `pip install -r requirements.txt && cd frontend && npm ci --include=dev && npm run build`. Node/npm are preinstalled in all Render native runtimes (verified in Render's docs 2026-10-01), so no Docker needed. `--include=dev` because Vite is a devDependency.
 - Start: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
 - Health check: `/api/health`.
 - Python version: `.python-version` (`3.14`).
-- Env vars: `GEMINI_MODEL` and `GEMINI_EMBEDDING_MODEL` are set in the YAML; `GEMINI_API_KEY` is `sync: false`, so Render prompts for it on first deploy and it never lives in the repo.
-- Free tier: ephemeral disk (DB resets on restart/redeploy; handbook re-seeds on boot, #11) and spin-down when idle (first request after idle is slow).
+- Env vars: `GEMINI_MODEL`, `GEMINI_EMBEDDING_MODEL`, and `DB_PATH=/var/data/front_desk.db` are set in the YAML; `GEMINI_API_KEY` is `sync: false`, so Render prompts for it on first deploy and it never lives in the repo.
+- Persistence: only `/var/data` survives restarts/redeploys; the build step can't see it (seeding runs at startup). A redeploy has a few seconds of downtime; no horizontal scaling. Seeding runs only on an empty table, so later `handbook.json` edits don't reach the deployed DB (#27).
 
 `requirements.txt`: pinned `fastapi`, `uvicorn[standard]`, `google-genai`, `pydantic`, `python-dotenv`, plus `pytest`, `httpx`, `httpx2` for tests.

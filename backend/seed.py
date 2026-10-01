@@ -21,5 +21,5 @@ def seed_if_empty() -> int:
         "RETRIEVAL_DOCUMENT",
     )
     for c, vector in zip(chunks, vectors, strict=True):
-        db.upsert_chunk(c["id"], c["category"], c["title"], c["content"], vector)
+        db.upsert_chunk(c["id"], c["category"], c["title"], c["content"], vector, source="handbook")
     return len(chunks)

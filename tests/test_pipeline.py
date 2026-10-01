@@ -213,3 +213,51 @@ def test_urgency_is_logged_on_every_path(hits):
     hits([FAR_AWAY])
     answer_question("Can I pick up early today?")
     assert only_log_row()["is_urgent"] is True
+
+
+# --- staff-written answers win over the sensitivity rule (decision log #28) --------------------
+
+STAFF_SICK = RetrievedChunk(
+    "sick-child", "Sick child", "If your child is sick, call us at (555) 014-2200 and keep them home.", 0.9, "staff"
+)
+SEEDED_ILLNESS = RetrievedChunk(
+    "illness", "Illness Policy", "Children must be fever-free for 24 hours before returning.", 0.85, "handbook"
+)
+
+
+def sick_question(fake_generate, answer, facts):
+    fake_generate.responses[SensitivityResult] = sens(SensitivityCategory.health, 4)
+    fake_generate.responses[GeneratedAnswer] = GeneratedAnswer(answer=answer, claimed_facts=facts)
+    return answer_question("my child is sick, what do I do?")
+
+
+def test_sensitive_question_fully_backed_by_staff_entry_is_answered(hits, fake_generate):
+    hits([STAFF_SICK, SEEDED_ILLNESS])
+    res = sick_question(fake_generate, "Please call us at (555) 014-2200 and keep them home.", ["call us at (555) 014-2200", "keep them home"])
+    assert not res.escalated
+    row = only_log_row()
+    assert row["is_sensitive"] is True and row["escalation_reason"] is None
+
+
+def test_sensitive_question_backed_by_seeded_handbook_still_escalates(hits, fake_generate):
+    hits([SEEDED_ILLNESS])
+    res = sick_question(fake_generate, "They must be fever-free for 24 hours.", ["fever-free for 24 hours before returning"])
+    assert res.escalated
+    assert only_log_row()["escalation_reason"] == "sensitive_forced"
+
+
+def test_sensitive_answer_mixing_staff_and_seeded_facts_escalates(hits, fake_generate):
+    hits([STAFF_SICK, SEEDED_ILLNESS])
+    res = sick_question(
+        fake_generate,
+        "Call us at (555) 014-2200; they must be fever-free for 24 hours.",
+        ["call us at (555) 014-2200", "fever-free for 24 hours before returning"],
+    )
+    assert res.escalated
+    assert only_log_row()["escalation_reason"] == "sensitive_forced"
+
+
+def test_sensitive_staff_answer_with_unsupported_number_escalates(hits, fake_generate):
+    hits([STAFF_SICK])
+    res = sick_question(fake_generate, "Call us at (555) 014-2200 within 2 hours.", ["call us at (555) 014-2200"])
+    assert res.escalated

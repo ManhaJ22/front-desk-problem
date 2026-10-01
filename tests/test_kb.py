@@ -147,3 +147,30 @@ def test_mark_resolved_returns_updated_row():
     log_id = db.insert_log({"question": "b", "escalated": True})
     assert db.mark_resolved(log_id)["resolved"] is True
     assert db.mark_resolved(9999) is None
+
+
+# --- source: handbook vs staff (decision log #28) ---------------------------------------------
+
+
+def test_seeded_chunks_are_handbook_and_dashboard_writes_are_staff():
+    seed_if_empty()
+    assert {c["source"] for c in db.list_chunks()} == {"handbook"}
+    created = kb.create_chunk("faq", "Parking", "Street parking only.")
+    assert created["source"] == "staff"
+    first = handbook()[0]
+    edited = kb.update_chunk(first["id"], first["category"], first["title"], first["content"] + " (edited)")
+    assert edited["source"] == "staff"  # editing a seeded entry is a staff judgement
+
+
+def test_init_db_migrates_pre_source_databases():
+    import sqlite3
+
+    with sqlite3.connect(config.DB_PATH) as conn:  # simulate a DB created before #28
+        conn.execute("DROP TABLE handbook_chunks")
+        conn.execute(
+            "CREATE TABLE handbook_chunks (id TEXT PRIMARY KEY, category TEXT NOT NULL, title TEXT NOT NULL, "
+            "content TEXT NOT NULL, embedding TEXT NOT NULL, updated_at TEXT NOT NULL)"
+        )
+        conn.execute("INSERT INTO handbook_chunks VALUES ('old', 'faq', 'Old', 'Old entry', '[1.0]', '2026-01-01')")
+    db.init_db()
+    assert db.get_chunk("old")["source"] == "handbook"

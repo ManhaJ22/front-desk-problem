@@ -42,6 +42,11 @@ full reasoning behind every design choice below; this file states the
    leans toward false positives (staff see a question the bot could have
    answered) over false negatives (a sensitive question answered
    automatically). See decision log #18, revised by #25.
+   **Exception — staff-written answers win (#28):** a sensitive question
+   is answered if every claimed fact is verified against handbook entries
+   that staff wrote or edited in the dashboard (`source = staff`) and the
+   confidence bar passes — a person already made the judgement call.
+   Sensitive questions grounded in the seeded handbook still escalate.
 4. **Generate answer + extract claimed facts** — one LLM call, structured
    output (`answer`, `claimed_facts: list[str]`). The model must answer
    only from the retrieved excerpts and list every specific factual claim
@@ -108,7 +113,9 @@ a different reason). Never merge these into one score.
 ## Data model
 
 ```sql
-handbook_chunks(id, category, title, content, embedding, updated_at)
+handbook_chunks(id, category, title, content, source, embedding, updated_at)
+-- source: 'handbook' (seeded from data/handbook.json) | 'staff' (created or
+--         edited in the operator dashboard) — decision log #28
 question_log(
   id, created_at, question, answer, escalated, escalation_reason,
   is_sensitive, is_urgent, sensitivity_category, sensitivity_score,
@@ -164,11 +171,13 @@ are in `docs/architecture.md` (decision log #14).
   production FastAPI serves the built `frontend/dist` and the JSON API
   lives under `/api/*` — one Render service, one URL, no CORS. Chosen
   because it's the framework the author knows best (decision log #12).
-- **Hosting**: Render, free tier for now. The free tier has an
-  ephemeral disk, so the SQLite DB (KB edits + question log) resets on
-  redeploy/restart; the handbook is re-seeded from `data/handbook.json`
-  on boot. Whether that's acceptable for the demo, or a cheap paid plan
-  with a persistent disk is needed, is still open (decision log #11).
+- **Hosting**: Render, paid `0.5c-512mb` instance with a 1 GB persistent
+  disk mounted at `/var/data`; SQLite lives at `/var/data/front_desk.db`
+  (`DB_PATH`), so KB edits and the question log survive restarts and
+  redeploys (decision log #27, closing #11). The handbook is seeded from
+  `data/handbook.json` only when the table is empty — later edits to that
+  file do NOT reach an existing deployed DB (edit via the dashboard, or
+  reset the DB).
 
 ## Non-negotiables (don't "helpfully" change these without flagging it)
 
@@ -176,7 +185,8 @@ are in `docs/architecture.md` (decision log #14).
 - Adherence checking stays mechanical (token-overlap), never a second LLM
   call grading the first — that's circular.
 - Sensitive questions (category ≠ `none` with score ≥ 3, or normalized
-  sensitivity score ≥ 0.70) always escalate.
+  sensitivity score ≥ 0.70) always escalate — unless fully grounded in
+  staff-written entries (#28).
 - Urgency detection stays keyword-based and static — see "Out of scope"
   below before adding date resolution.
 - Knowledge-base editing and question review stay in separate operator UI

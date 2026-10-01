@@ -12,6 +12,7 @@ class RetrievedChunk:
     title: str
     content: str
     cosine: float
+    source: str = "handbook"  # 'staff' if written/edited in the dashboard (decision log #28)
 
 
 def cosine(a: list[float], b: list[float]) -> float:
@@ -24,7 +25,7 @@ def retrieve(question: str) -> list[RetrievedChunk]:
     """Top TOP_K chunks by cosine similarity, best first. Empty list if the KB is empty."""
     query = gemini.embed([question], "RETRIEVAL_QUERY")[0]
     scored = [
-        RetrievedChunk(c["id"], c["title"], c["content"], cosine(query, c["embedding"]))
+        RetrievedChunk(c["id"], c["title"], c["content"], cosine(query, c["embedding"]), c["source"])
         for c in db.list_chunks(with_embedding=True)
     ]
     scored.sort(key=lambda c: c.cosine, reverse=True)

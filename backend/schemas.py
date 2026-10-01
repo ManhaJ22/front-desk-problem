@@ -73,6 +73,7 @@ class ChunkOut(BaseModel):
     category: str
     title: str
     content: str
+    source: str  # 'handbook' | 'staff' (decision log #28)
     updated_at: str
 
 

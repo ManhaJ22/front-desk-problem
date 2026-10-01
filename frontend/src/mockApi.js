@@ -18,6 +18,7 @@ let chunks = [
     title: "Holiday Closures",
     content:
       "Little Acorns is closed on New Year's Day, Martin Luther King Jr. Day, Memorial Day, Juneteenth, Independence Day, Labor Day, Thanksgiving Day and the Friday after, Christmas Eve, and Christmas Day. Little Acorns is OPEN on Veterans Day, Presidents' Day, Columbus Day / Indigenous Peoples' Day, and Good Friday, with normal hours of 7:00 AM to 6:00 PM.",
+    source: "handbook",
     updated_at: minutesAgo(3000),
   },
   {
@@ -26,6 +27,7 @@ let chunks = [
     title: "Monthly Tuition by Age Group",
     content:
       "Full-time monthly tuition: Infants (6 weeks to 12 months) $2,150; Toddlers (12 to 24 months) $1,950; Twos $1,750; Preschool $1,550; Pre-K $1,450.",
+    source: "handbook",
     updated_at: minutesAgo(3000),
   },
   {
@@ -34,6 +36,7 @@ let chunks = [
     title: "Enrollment and Scheduling a Tour",
     content:
       "Tours are offered Tuesdays and Thursdays at 9:30 AM and 3:30 PM. To schedule a tour, call (555) 014-2200 or book online at littleacorns.example/tour.",
+    source: "handbook",
     updated_at: minutesAgo(3000),
   },
   {
@@ -42,6 +45,7 @@ let chunks = [
     title: "Forgotten Lunch / Backup Lunch",
     content:
       "If you forget to pack lunch, the center can provide a backup lunch for $6. Let the front office know by 10:00 AM. The backup lunch is the same every day: a sunflower-butter and jelly sandwich (or a cheese quesadilla), sliced apples, and milk.",
+    source: "handbook",
     updated_at: minutesAgo(3000),
   },
   {
@@ -50,6 +54,7 @@ let chunks = [
     title: "Illness and Fever Policy",
     content:
       "Children with a fever of 100.4°F or higher may not attend and must be fever-free for 24 hours without fever-reducing medication before returning.",
+    source: "handbook",
     updated_at: minutesAgo(3000),
   },
   {
@@ -58,6 +63,7 @@ let chunks = [
     title: "Late Pick-up Fee",
     content:
       "The center closes at 6:00 PM. A late pick-up fee of $1 per minute per child is charged starting at 6:01 PM.",
+    source: "handbook",
     updated_at: minutesAgo(3000),
   },
 ];
@@ -326,7 +332,7 @@ function slugify(title) {
 
 export async function createChunk({ category, title, content }) {
   await wait();
-  const chunk = { id: slugify(title), category, title, content, updated_at: now() };
+  const chunk = { id: slugify(title), category, title, content, source: "staff", updated_at: now() };
   chunks.push(chunk);
   return clone(chunk);
 }
@@ -346,7 +352,7 @@ export async function updateChunk(id, { category, title, content }) {
   await wait();
   const c = chunks.find((x) => x.id === id);
   if (!c) throw new Error("not found");
-  Object.assign(c, { category, title, content, updated_at: now() });
+  Object.assign(c, { category, title, content, source: "staff", updated_at: now() });
   return clone(c);
 }
 

@@ -23,15 +23,19 @@ def slugify(title: str) -> str:
     return chunk_id
 
 
+# Anything written or edited in the dashboard is a staff judgement (decision log #28).
+STAFF = "staff"
+
+
 def create_chunk(category: str, title: str, content: str) -> dict:
-    return db.upsert_chunk(slugify(title), category, title, content, _embed(title, content))
+    return db.upsert_chunk(slugify(title), category, title, content, _embed(title, content), source=STAFF)
 
 
 def update_chunk(chunk_id: str, category: str, title: str, content: str) -> dict | None:
     """Returns None if the chunk doesn't exist."""
     if not db.chunk_exists(chunk_id):
         return None
-    return db.upsert_chunk(chunk_id, category, title, content, _embed(title, content))
+    return db.upsert_chunk(chunk_id, category, title, content, _embed(title, content), source=STAFF)
 
 
 def delete_chunk(chunk_id: str) -> bool:

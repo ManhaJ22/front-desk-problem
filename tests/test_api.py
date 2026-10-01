@@ -17,7 +17,7 @@ QUESTION_KEYS = {
     "semantic_score", "adherence_score", "combined_score", "threshold_used",
     "retrieved_chunk_ids", "claimed_facts", "unmatched_facts", "resolved", "priority",
 }  # fmt: skip
-CHUNK_KEYS = {"id", "category", "title", "content", "updated_at"}
+CHUNK_KEYS = {"id", "category", "title", "content", "source", "updated_at"}
 STATS_KEYS = {"total", "answered", "escalated", "unresolved", "by_reason"}
 REASONS = {"out_of_scope", "sensitive_forced", "below_threshold", "system_error"}
 

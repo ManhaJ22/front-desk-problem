@@ -72,7 +72,10 @@ export default function KnowledgeBase({ chunks, onCreate, onUpdate, onDelete }) 
               ) : (
                 <>
                   <div className="card-head">
-                    <h4>{c.title}</h4>
+                    <h4>
+                      {c.title}
+                      {c.source === "staff" && <span className="badge badge-staff">Staff-written</span>}
+                    </h4>
                     <span className="muted small">Updated {timeAgo(c.updated_at)}</span>
                   </div>
                   <p className="card-content">{c.content}</p>

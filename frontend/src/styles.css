@@ -193,6 +193,7 @@ p { margin: 0; }
 .badge-reason { background: var(--escalate-bg); color: var(--escalate-ink); }
 .badge-answered { background: var(--accent-soft); color: var(--accent); }
 .badge-resolved { background: var(--line); color: var(--muted); }
+.badge-staff { background: var(--accent-soft); color: var(--accent); margin-left: 8px; vertical-align: middle; }
 
 .empty { color: var(--muted); padding: 24px 0; text-align: center; }
 

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS handbook_chunks (
   category TEXT NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'handbook',  -- 'handbook' (seeded) | 'staff' (dashboard) - decision log #28
   embedding TEXT NOT NULL,            -- JSON list[float]
   updated_at TEXT NOT NULL            -- ISO-8601 UTC
 );
@@ -65,8 +66,12 @@ def _execute(sql: str, params: tuple = ()) -> sqlite3.Cursor:
 
 
 def init_db() -> None:
-    with closing(get_conn()) as conn:
+    with closing(get_conn()) as conn, conn:
         conn.executescript(SCHEMA)
+        # Migrate databases created before decision log #28 (persistent disk keeps old files).
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(handbook_chunks)")}
+        if "source" not in columns:
+            conn.execute("ALTER TABLE handbook_chunks ADD COLUMN source TEXT NOT NULL DEFAULT 'handbook'")
 
 
 # --- handbook_chunks ---------------------------------------------------------------
@@ -95,16 +100,19 @@ def chunk_exists(chunk_id: str) -> bool:
     return bool(_query("SELECT 1 FROM handbook_chunks WHERE id = ?", (chunk_id,)))
 
 
-def upsert_chunk(chunk_id: str, category: str, title: str, content: str, embedding: list[float]) -> dict:
+def upsert_chunk(
+    chunk_id: str, category: str, title: str, content: str, embedding: list[float], source: str = "handbook"
+) -> dict:
+    """source: 'handbook' for seeded entries, 'staff' for dashboard creates/edits (decision log #28)."""
     _execute(
         """
-        INSERT INTO handbook_chunks (id, category, title, content, embedding, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO handbook_chunks (id, category, title, content, source, embedding, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           category = excluded.category, title = excluded.title, content = excluded.content,
-          embedding = excluded.embedding, updated_at = excluded.updated_at
+          source = excluded.source, embedding = excluded.embedding, updated_at = excluded.updated_at
         """,
-        (chunk_id, category, title, content, json.dumps(embedding), now_iso()),
+        (chunk_id, category, title, content, source, json.dumps(embedding), now_iso()),
     )
     return get_chunk(chunk_id)
 

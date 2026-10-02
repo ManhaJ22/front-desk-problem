@@ -4,9 +4,9 @@ API shapes must match docs/architecture.md (API contract) and frontend/src/mockA
 """
 
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, StringConstraints, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from backend.config import KB_CATEGORIES
 
@@ -29,6 +29,8 @@ class SensitivityResult(BaseModel):
     # Urgency is judged in the same call, in context (decision log #44).
     is_urgent: bool = False
     urgency_reason: str = ""
+    # The latest message rewritten to stand alone, using the conversation (decision log #45).
+    standalone_question: str = ""
 
 
 class GeneratedAnswer(BaseModel):
@@ -43,8 +45,16 @@ class GeneratedAnswer(BaseModel):
 NonEmpty = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
+class ChatTurn(BaseModel):
+    """One prior message in the parent's chat, sent as context (decision log #45)."""
+
+    role: Literal["parent", "assistant"]
+    text: Annotated[str, StringConstraints(max_length=2000)]
+
+
 class AskRequest(BaseModel):
     question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    history: list[ChatTurn] = Field(default_factory=list, max_length=6)  # last 3 exchanges
 
 
 class Source(BaseModel):
@@ -92,6 +102,8 @@ class QuestionOut(BaseModel):
     is_sensitive: bool
     is_urgent: bool
     urgency_reason: str | None  # classifier's reason; None when the keyword fallback decided (#44)
+    standalone_question: str | None  # classifier's rewrite; None if unchanged (#45)
+    history: list[ChatTurn]  # prior chat turns sent with the question (#45)
     sensitivity_category: str | None
     sensitivity_score: int | None
     sensitivity_rationale: str | None

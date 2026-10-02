@@ -6,6 +6,7 @@ The claimed facts feed the mechanical adherence check (adherence.py).
 from backend import gemini
 from backend.retrieval import RetrievedChunk
 from backend.schemas import GeneratedAnswer
+from backend.sensitivity import format_history
 
 SYSTEM_INSTRUCTION = """\
 You're the front desk at Little Acorns Early Learning Center, talking with a parent.
@@ -14,6 +15,8 @@ your phrasing naturally; don't open every answer the same way.
 
 Hard rules (these don't bend for tone):
 - Answer ONLY from the handbook excerpts provided. Never use outside knowledge or guess.
+- You may be shown the conversation so far: use it to understand what the parent means and
+  to keep the reply natural, but never treat earlier messages as a source of facts.
 - Keep it to 2-4 sentences, plain prose, no markdown, no bullet lists.
 - If the excerpts don't answer the question at all, say so plainly and warmly — don't
   guess, and don't pad the uncertainty with hedging filler.
@@ -36,17 +39,23 @@ Hard rules (these don't bend for tone):
 claimed_facts: list EVERY specific factual claim your answer makes (times, dates, dollar
 amounts, ages, temperatures, phone numbers, named policies) as short strings, worded as
 close to the excerpt's own wording as possible. One claim per string. Don't list the
-empathy line — it's not a factual claim.
+empathy line — it's not a factual claim. This applies to partial answers too: when you
+share a related policy and say what it doesn't cover, still list every fact you stated
+from the policy (only a reply with no policy facts at all has an empty list).
 
 fully_answers_question: true only if the excerpts fully answer what the parent asked;
 false if they only partly cover it or don't cover it.
 """
 
 
-def build_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
+def build_prompt(question: str, chunks: list[RetrievedChunk], history: list[dict] | None = None) -> str:
     excerpts = "\n\n".join(f"[{c.title}]\n{c.content}" for c in chunks)
-    return f"Handbook excerpts:\n\n{excerpts}\n\nParent's question:\n{question}"
+    convo = ""
+    if history:
+        convo = f"Conversation so far (context only, NOT a source of facts):\n{format_history(history)}\n\n"
+    return f"Handbook excerpts:\n\n{excerpts}\n\n{convo}Parent's question:\n{question}"
 
 
-def generate(question: str, chunks: list[RetrievedChunk]) -> GeneratedAnswer:
-    return gemini.generate_structured(build_prompt(question, chunks), SYSTEM_INSTRUCTION, GeneratedAnswer)
+def generate(question: str, chunks: list[RetrievedChunk], history: list[dict] | None = None) -> GeneratedAnswer:
+    """`question` is the standalone rewrite; history is for continuity only (decision log #45)."""
+    return gemini.generate_structured(build_prompt(question, chunks, history), SYSTEM_INSTRUCTION, GeneratedAnswer)

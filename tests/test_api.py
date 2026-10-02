@@ -13,7 +13,7 @@ from backend.schemas import GeneratedAnswer, SensitivityCategory, SensitivityRes
 ASK_KEYS = {"log_id", "escalated", "answer", "message", "sources"}
 QUESTION_KEYS = {
     "id", "created_at", "question", "answer", "escalated", "escalation_reason", "is_sensitive",
-    "is_urgent", "urgency_reason", "sensitivity_category", "sensitivity_score", "sensitivity_rationale",
+    "is_urgent", "urgency_reason", "standalone_question", "history", "sensitivity_category", "sensitivity_score", "sensitivity_rationale",
     "semantic_score", "adherence_score", "combined_score", "threshold_used",
     "retrieved_chunk_ids", "claimed_facts", "unmatched_facts", "answer_shown", "resolved", "priority",
 }  # fmt: skip
@@ -221,3 +221,11 @@ def test_unknown_api_route_is_json_404_not_index(client, built_frontend):
 def test_path_traversal_falls_back_to_index(client, built_frontend):
     (built_frontend.parent / "secret.txt").write_text("secret")
     assert "secret" not in client.get("/..%2Fsecret.txt").text
+
+
+def test_ask_accepts_history_and_validates_it(client, answered):
+    history = [{"role": "parent", "text": "Can another parent pick up my child?"}, {"role": "assistant", "text": "Only authorized adults."}]
+    assert client.post("/api/ask", json={"question": "What about Uber?", "history": history}).status_code == 200
+    assert db.list_logs("all")[0]["history"] == history
+    assert client.post("/api/ask", json={"question": "q", "history": [{"role": "robot", "text": "x"}]}).status_code == 422
+    assert client.post("/api/ask", json={"question": "q", "history": [{"role": "parent", "text": "x"}] * 7}).status_code == 422

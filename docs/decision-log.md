@@ -19,6 +19,7 @@ than one that answers everything with uneven reliability. Evaluated on
 scope, persuasiveness, empathy, uniqueness — not feature count.
 
 ### 2. Pipeline order, with an out-of-scope short-circuit — 2026-10-01
+**Revised 2026-10-01 → see #45:** classification now runs first (it also rewrites follow-ups into standalone questions).
 Retrieve → out-of-scope check → classify sensitivity → generate + extract
 claimed facts → mechanical adherence check → combine confidence →
 threshold/escalate → log. If retrieval finds nothing above the similarity
@@ -654,6 +655,47 @@ it). `urgency_reason` is stored and shown on the dashboard.
 Trade-offs: the classifier can be wrong in both directions; a failure
 silently drops back to the cruder keyword behaviour.
 
+### 45. Conversation context: follow-ups are rewritten as standalone questions — 2026-10-01
+Every message used to be answered in isolation, so a follow-up like "Can
+they be picked up by Uber?" (after "Can my child be picked up by another
+parent? I'm stuck at work") reached retrieval with no idea who "they" are.
+
+Design (zero extra LLM calls):
+- The parent page sends the last 3 exchanges (6 turns) as `history` with
+  each question. The server stays stateless; history is stored in the log
+  row only so staff can see what the question meant.
+- The classifier call — which already runs on every non-small-talk
+  question (#38) — moves **before** retrieval and also returns
+  `standalone_question`: the latest message rewritten to be
+  self-contained using the conversation. Seeing the conversation also
+  improves sensitivity and urgency ("stuck at work" + pickup → urgent).
+- Retrieval and generation use the standalone question. Generation also
+  sees the conversation for continuity, but is told it's never a source of
+  facts; adherence still verifies every fact against retrieved chunks only.
+- The dashboard shows "Asked as" vs "Interpreted as" plus the prior turns.
+- If classification fails, the original message is used for retrieval and
+  urgency falls back to keywords (in-scope questions still become
+  `system_error`, as before, because sensitivity is unknown).
+- The classifier sees prior *assistant* replies (which can quote handbook
+  content) only as conversation context — it still never receives the
+  retrieved chunks for the current question.
+
+Trade-offs: retrieval now depends on the model's rewrite — a bad rewrite
+retrieves the wrong policy (visible on the dashboard as Interpreted as);
+history is client-supplied, so it's untrusted context (fine for a demo,
+would need server-side sessions in production); only the last 3 exchanges
+are kept; small talk still skips everything, so "thanks!" mid-conversation
+doesn't consume context.
+
+**Found while testing #45 (prompt fix for #42):** the rewritten Uber
+follow-up produced a good partial answer ("our handbook doesn't mention
+Uber drivers, but children are released only to authorized pick-ups…")
+with **zero** `claimed_facts` — the model treated "partly covered" like
+"not covered" — so it couldn't verify and wasn't shown, and the behaviour
+was flaky across runs. The generation prompt now says partial answers must
+still list every fact they state from the policy; 3/3 live runs then
+showed the answer with its source and staff note.
+
 ---
 
 ## Known limitations and trade-offs (summary for the write-up)
@@ -715,5 +757,6 @@ Grouped; numbers point to the decisions above.
 - Retrieval thresholds calibrated on 27 hand-written questions with a
   ~0.04 gap between on- and off-topic — needs re-checking as the
   handbook grows (#21).
-- Every question is independent: no conversation memory or follow-ups.
+- Conversation memory is the last 3 exchanges, client-supplied; a bad
+  standalone rewrite misdirects retrieval (#45).
 - Retrieval quality isn't covered by automated tests (#36).

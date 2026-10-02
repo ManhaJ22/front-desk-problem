@@ -51,6 +51,23 @@ export default function QuestionDetail({ question: q, chunks, onResolve, onAddTo
 
       <Badges q={q} />
       <blockquote className="detail-question">{q.question}</blockquote>
+      {q.standalone_question && (
+        <p className="interpreted">
+          <span className="muted">Interpreted as:</span> {q.standalone_question}
+        </p>
+      )}
+      {q.history.length > 0 && (
+        <details className="convo">
+          <summary>Earlier in this conversation ({q.history.length} messages)</summary>
+          <ul>
+            {q.history.map((t, i) => (
+              <li key={i}>
+                <strong>{t.role === "parent" ? "Parent" : "Front desk"}:</strong> {t.text}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <p className="muted">
         Asked {timeAgo(q.created_at)}
         {q.escalated && <> · {reasonDetail(q)}</>}

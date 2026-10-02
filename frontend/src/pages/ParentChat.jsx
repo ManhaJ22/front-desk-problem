@@ -4,6 +4,15 @@ import ChatMessage from "../components/ChatMessage.jsx";
 import SuggestedQuestions from "../components/SuggestedQuestions.jsx";
 
 const MAX_LEN = 500;
+const HISTORY_TURNS = 6; // last 3 exchanges sent as context (decision log #45)
+
+// Chat bubbles -> the turns the backend uses to understand follow-ups. Errors aren't sent.
+function toHistory(messages) {
+  return messages
+    .filter((m) => m.kind !== "error")
+    .map((m) => ({ role: m.kind === "parent" ? "parent" : "assistant", text: m.text }))
+    .slice(-HISTORY_TURNS);
+}
 const ERROR_TEXT = `Sorry, something went wrong — please try again or call ${CENTER_PHONE}.`;
 
 export default function ParentChat() {
@@ -25,11 +34,12 @@ export default function ParentChat() {
   async function send(text) {
     const question = text.trim();
     if (!question || sending) return;
+    const history = toHistory(messages); // before adding the new question
     setMessages((m) => [...m, { kind: "parent", text: question }]);
     setDraft("");
     setSending(true);
     try {
-      const res = await ask(question);
+      const res = await ask(question, history);
       setMessages((m) => [
         ...m,
         res.answer

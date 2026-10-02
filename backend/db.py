@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS question_log (
   is_sensitive INTEGER NOT NULL DEFAULT 0,
   is_urgent INTEGER NOT NULL DEFAULT 0,
   urgency_reason TEXT,                -- classifier's reason; NULL = keyword fallback (decision log #44)
+  standalone_question TEXT,           -- classifier's rewrite; NULL if unchanged (decision log #45)
+  history TEXT NOT NULL DEFAULT '[]', -- JSON prior chat turns sent with the question (decision log #45)
   sensitivity_category TEXT,
   sensitivity_score INTEGER,
   sensitivity_rationale TEXT,
@@ -43,7 +45,7 @@ CREATE TABLE IF NOT EXISTS question_log (
 );
 """
 
-LOG_JSON_FIELDS = ("retrieved_chunk_ids", "claimed_facts", "unmatched_facts")
+LOG_JSON_FIELDS = ("retrieved_chunk_ids", "claimed_facts", "unmatched_facts", "history")
 LOG_BOOL_FIELDS = ("escalated", "is_sensitive", "is_urgent", "answer_shown", "resolved")
 
 
@@ -74,6 +76,8 @@ def init_db() -> None:
         _add_column_if_missing(conn, "handbook_chunks", "source", "TEXT NOT NULL DEFAULT 'handbook'")  # #28
         _add_column_if_missing(conn, "question_log", "answer_shown", "INTEGER NOT NULL DEFAULT 0")  # #37
         _add_column_if_missing(conn, "question_log", "urgency_reason", "TEXT")  # #44
+        _add_column_if_missing(conn, "question_log", "standalone_question", "TEXT")  # #45
+        _add_column_if_missing(conn, "question_log", "history", "TEXT NOT NULL DEFAULT '[]'")  # #45
 
 
 def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:

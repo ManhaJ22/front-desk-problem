@@ -206,6 +206,9 @@ p { margin: 0; }
 .detail-empty { align-items: center; justify-content: center; min-height: 200px; }
 .detail .back { display: none; align-self: flex-start; }
 .detail-question { margin: 0; font-size: 1.15rem; font-weight: 600; border-left: 3px solid var(--line); padding-left: 12px; }
+.interpreted { font-size: 0.95rem; margin-top: -8px; }
+.convo summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+.convo ul { margin: 8px 0 0; padding-left: 18px; font-size: 0.9rem; display: flex; flex-direction: column; gap: 4px; }
 .detail-answer { background: var(--bg); border-radius: var(--radius-sm); padding: 10px 12px; }
 
 .facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

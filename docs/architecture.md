@@ -169,6 +169,8 @@ question_log(
   is_sensitive INTEGER NOT NULL DEFAULT 0,
   is_urgent INTEGER NOT NULL DEFAULT 0,   -- (A) from the classifier (#44); keyword fallback
   urgency_reason TEXT,           -- classifier's one-line reason; NULL for keyword fallback (#44)
+  standalone_question TEXT,      -- classifier's rewrite; NULL if same as question (#45)
+  history TEXT NOT NULL DEFAULT '[]',  -- JSON prior chat turns sent with the question (#45)
   sensitivity_category TEXT,     -- NULL when classification didn't run
   sensitivity_score INTEGER,
   sensitivity_rationale TEXT,
@@ -188,7 +190,7 @@ question_log(
 ### `schemas.py`
 LLM output models (passed as `response_schema`):
 - `SensitivityCategory(str, Enum)`: `health, safety, allergies, custody_legal, emotional_social, none`
-- `SensitivityResult`: `category: SensitivityCategory`, `score: int` (1–5), `rationale: str`, `is_urgent: bool`, `urgency_reason: str` (urgency judged in the same call, #44)
+- `SensitivityResult`: `category: SensitivityCategory`, `score: int` (1–5), `rationale: str`, `is_urgent: bool`, `urgency_reason: str` (urgency judged in the same call, #44), `standalone_question: str` (latest message rewritten using the conversation, #45)
 - `GeneratedAnswer`: `answer: str`, `claimed_facts: list[str]`, `fully_answers_question: bool` (false when the excerpts only partly cover the question, #42)
 
 API models: `AskRequest`, `AskResponse`, `Source`, `ChunkIn`, `ChunkOut`, `QuestionOut`, `AddToKbRequest`, `Stats` (fields under **API contract**).
@@ -215,12 +217,12 @@ The only module that imports `google.genai`. Tests mock these two functions.
 - `relevant(hits) -> list[RetrievedChunk]` = hits with cosine ≥ floor. The pipeline calls this once and passes the result to **both** generation and the adherence check, so facts are checked against exactly the excerpts the model saw.
 
 ### `sensitivity.py`
-- `classify(question) -> SensitivityResult`: **question only** (no chunks) goes to the model. The system instruction defines each category with one example.
+- `classify(question, history=[]) -> SensitivityResult`: the question plus prior chat turns (no retrieved chunks) go to the model; returns sensitivity, urgency, and `standalone_question` (#45). The system instruction defines each category with one example.
 - `normalized(score) -> float` = `(score - 1) / 4` (1→0.0, 4→0.75, 5→1.0).
 - `is_sensitive(result) -> bool` = `(result.category != "none" and result.score >= SENSITIVE_CATEGORY_MIN_SCORE) or normalized(result.score) >= SENSITIVITY_THRESHOLD` (decisions #18, #25). The system instruction categorizes by what the parent needs (a person's judgement about a child) rather than by topic mentioned. The raw 1–5 score is stored as the model returned it.
 
 ### `generation.py`
-- `generate(question, chunks) -> GeneratedAnswer`. Receives the already-filtered `relevant(hits)`; each excerpt is labelled with its title. System instruction:
+- `generate(question, chunks, history=[]) -> GeneratedAnswer`: `question` is the standalone rewrite; history is for continuity only, never a fact source (#45). Receives the already-filtered `relevant(hits)`; each excerpt is labelled with its title. System instruction:
   - answer only from the excerpts; warm, short (2–4 sentences), plain language for a parent;
   - if the excerpts don't answer the question, say so and return `claimed_facts: []`;
   - list **every** specific claim (time, $ amount, age, temperature, phone number, named policy) as a short string worded as close to the source as possible;
@@ -249,7 +251,7 @@ The only module that imports `google.genai`. Tests mock these two functions.
 - `sort_queue(rows)`: unresolved before resolved, then `priority` ascending, then `combined_score` ascending (weakest first, NULL first), then newest first.
 
 ### `pipeline.py`
-`answer_question(question) -> AskResponse`:
+`answer_question(question, history=[]) -> AskResponse`:
 
 Step 0: `small_talk_reply(question)` — if it returns text, log it as answered and return it; nothing else runs (#40).
 On a message-only escalation of a sensitive question, `message = SENSITIVITY_OPENERS[category] + ESCALATION_MESSAGE` (#41).
@@ -257,11 +259,13 @@ On a message-only escalation of a sensitive question, `message = SENSITIVITY_OPE
 ```
 urgent = is_urgent(q)   # keyword fallback; replaced by the classifier's is_urgent when it runs (#44)
 try:
-  hits = retrieve(q)
-  if is_out_of_scope(hits):            → classify sensitivity (failure tolerated), escalate("out_of_scope"); no generation (#38)
-  sens = classify(q)
-  sensitive = is_sensitive(sens)        # category ≠ none OR normalized score ≥ 0.70 (D, #18)
-  gen = generate(q, hits)               # runs even if sensitive (F)
+  sens = classify(q, history) or None on GeminiError   # FIRST: sensitivity + urgency + standalone rewrite (#45)
+  sq = sens.standalone_question if sens else q
+  hits = retrieve(sq)
+  if is_out_of_scope(hits):            → escalate("out_of_scope"), keep sens if any; no generation (#38)
+  if sens is None:                     → escalate("system_error")
+  sensitive = is_sensitive(sens)        # (category ≠ none AND score ≥ 3) OR normalized ≥ 0.70 (#18, #25)
+  gen = generate(sq, hits, history)     # runs even if sensitive (F)
   adh = check(gen.claimed_facts, hits)
   sem = semantic_score(hits[0].cosine)
   combined = 0.35*sem + 0.65*adh.score
@@ -284,7 +288,7 @@ Returns: answered → `answer` + `sources` (chunks that backed a matched fact, K
 | Method & path | Request | Response |
 |---|---|---|
 | `GET /api/health` | — | `{"ok": true, "db_path": "<absolute path>"}` (confirms the DB is on the persistent disk, #27) |
-| `POST /api/ask` | `{question: str}` (1–500 chars, trimmed) | `{log_id, escalated, answer: str\|null, message: str\|null, sources: [{id, title}]}`. Three shapes: answered (`answer`, no `message`); escalated with verified answer (`answer` + `sources` + `message` = staff note, #37); escalated (`message` only) |
+| `POST /api/ask` | `{question: str (1–500 chars, trimmed), history?: [{role: "parent"\|"assistant", text}] (≤ 6 turns, #45)}` | `{log_id, escalated, answer: str\|null, message: str\|null, sources: [{id, title}]}`. Three shapes: answered (`answer`, no `message`); escalated with verified answer (`answer` + `sources` + `message` = staff note, #37); escalated (`message` only) |
 | `GET /api/operator/questions?view=needs_review\|all` | default `needs_review` = escalated and unresolved | `[QuestionOut]`: every `question_log` column (JSON fields decoded) + `priority`, sorted by `triage.sort_queue` |
 | `POST /api/operator/questions/{id}/resolve` | — | `QuestionOut` |
 | `POST /api/operator/questions/{id}/add-to-kb` | `{category, title, content}` | `{chunk: ChunkOut, question: QuestionOut}` (also marks it resolved) |
@@ -311,7 +315,7 @@ No test calls Gemini; `backend.gemini.embed` and `generate_structured` are monke
 - `test_sensitivity.py`: `normalized()` maps 1→0.0 … 5→1.0; `is_sensitive()`: a non-`none` category is sensitive at score ≥ 3 but not at 1–2; any category is sensitive at score ≥ 4 (the 0.70 boundary); `classify()` passes the schema and question-only prompt to `generate_structured` (mocked). The system instruction defines urgency in context (#44).
 - `test_retrieval.py`: `cosine()` basics; `retrieve()` returns top-`TOP_K` by cosine (embedder mocked); `semantic_score()` clamps at floor/ceiling; `is_out_of_scope()` boundary and empty KB; `relevant()` filters at the floor.
 - `test_generation.py`: the prompt contains the question and every excerpt labelled by title; the call uses the `GeneratedAnswer` schema and the grounding rules in the system instruction (generator mocked).
-- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes exactly one LLM call (classification, never generation) and records sensitivity; a classification failure on an out-of-scope question stays `out_of_scope`; sensitive questions escalate even at confidence 1.0; a category tag with score 2 (e.g. calling in sick) is answered if grounded; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row. Urgency: the classifier's `is_urgent` overrides keywords ("weather today" → not urgent; "after school" pickup → urgent); keyword fallback when classification fails.
+- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes exactly one LLM call (classification, never generation) and records sensitivity; a classification failure on an out-of-scope question stays `out_of_scope`; sensitive questions escalate even at confidence 1.0; a category tag with score 2 (e.g. calling in sick) is answered if grounded; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row. Urgency: the classifier's `is_urgent` overrides keywords ("weather today" → not urgent; "after school" pickup → urgent); keyword fallback when classification fails. Conversation (#45): classify runs before retrieval and receives history; retrieval and generation use the standalone rewrite; original question, rewrite and history are logged; classification failure falls back to the original question.
 - `test_api.py`: request/response shapes for every endpoint; add-to-kb creates a chunk and resolves the question.
 
 ---
@@ -333,7 +337,7 @@ Detailed build plan: `docs/plans/frontend-plan.md`.
 - `styles.css`: mobile-first, max content width 640px for the parent view and wider for the operator view, CSS variables for colors.
 
 **Parent view**
-- `pages/ParentChat.jsx`: center name header; message list (kept in component state for the session only); text input with a 500-character limit; send is disabled while waiting, and a "Checking the handbook…" indicator shows.
+- `pages/ParentChat.jsx`: sends the last 3 exchanges (6 turns, errors excluded) as `history` with each question (#45); center name header; message list (kept in component state for the session only); text input with a 500-character limit; send is disabled while waiting, and a "Checking the handbook…" indicator shows.
 - `components/SuggestedQuestions.jsx`: chips for the five Brightwheel example questions, shown until the first message is sent.
 - `components/ChatMessage.jsx`: parent bubble / answer bubble with "From the handbook: <title>" tags / escalation bubble. The escalation bubble uses a calm, neutral style, not error red, and shows only `message`. When a response has both `answer` and `message` (sensitive + verified, #37), it renders as an answer bubble with sources and the staff note underneath.
 - Network failure → "Sorry, something went wrong — please try again or call (555) 014-2200." This is the one place the frontend shows anything other than an answer or the escalation message.
@@ -342,7 +346,7 @@ Detailed build plan: `docs/plans/frontend-plan.md`.
 - `pages/OperatorDashboard.jsx`: `StatsBar` at the top, then two **separate tabs**: *Questions* | *Knowledge Base* (non-negotiable). A Refresh button, no polling.
 - `components/StatsBar.jsx`: total, % answered, escalated by reason, unresolved.
 - `components/QuestionQueue.jsx`: toggle between *Needs review* and *All*; each row shows priority badges (🔴 Urgent, 🟠 Sensitive + category), a reason label, the question text, and the time.
-- `components/QuestionDetail.jsx`: the question; the escalation reason in plain English; the would-have-been answer; semantic, adherence, and combined scores against the threshold; claimed facts each marked ✓ (matched) or ✗ (unmatched); the sensitivity rationale; titles of the retrieved chunks. Actions: **Mark resolved**, **Add answer to KB** (opens a `ChunkEditor` with the title prefilled from the question and category `faq`). For a sensitive question the editor shows a note that it will still escalate (N), and the Combined score reads "Sensitive — always sent to staff" instead of a threshold.
+- `components/QuestionDetail.jsx`: the question, "Interpreted as" (standalone rewrite) when it differs, and the earlier conversation in a collapsible list (#45); the escalation reason in plain English; the would-have-been answer; semantic, adherence, and combined scores against the threshold; claimed facts each marked ✓ (matched) or ✗ (unmatched); the sensitivity rationale; titles of the retrieved chunks. Actions: **Mark resolved**, **Add answer to KB** (opens a `ChunkEditor` with the title prefilled from the question and category `faq`). For a sensitive question the editor shows a note that it will still escalate (N), and the Combined score reads "Sensitive — always sent to staff" instead of a threshold.
 - `components/KnowledgeBase.jsx`: list of chunks grouped by category; Add / Edit / Delete (delete asks for confirmation in the page itself, not with `window.confirm`).
 - `components/ChunkEditor.jsx`: category select (`KB_CATEGORIES`), title, content textarea, Save/Cancel. Used by both tabs.
 

@@ -26,17 +26,27 @@ full reasoning behind every design choice below; this file states the
 0. **Small talk** — a message that is only a greeting or thanks ("hi",
    "good morning", "thank you!") gets a friendly canned reply: no
    retrieval, no LLM, no staff notification; still logged (decision log #40).
-1. **Retrieve** — embed the parent's question (Gemini's embedding model —
-   see Tech Stack for exact model id), cosine-similarity against stored
-   handbook chunk embeddings.
-2. **Out-of-scope short-circuit** — if nothing clears the similarity
+1. **Classify (sees the conversation)** — one LLM call, structured
+   output, now run *first* (decision log #45). Input: the latest message
+   plus the last few chat turns the parent page sends as `history`
+   (client-held; the server stays stateless). Output: a **standalone
+   rewrite** of the latest message ("Can they be picked up by Uber?" →
+   "Can my child be picked up from school by an Uber driver? I'm stuck at
+   work."), urgency (#44), and sensitivity (below). The rewrite drives
+   retrieval and generation; the dashboard shows both versions. The
+   classifier still never sees retrieved handbook text. If this call
+   fails, the original message is used for retrieval and urgency falls
+   back to keywords.
+2. **Retrieve** — embed the standalone question (Gemini's embedding
+   model — see Tech Stack), cosine-similarity against stored handbook
+   chunk embeddings.
+3. **Out-of-scope short-circuit** — if nothing clears the similarity
    floor, skip answer generation (there's no source to answer from) and
-   escalate as out-of-scope. **Sensitivity is still classified** (one LLM
-   call) so an off-handbook sensitive question — e.g. bullying — is marked
-   sensitive and triaged accordingly (decision log #38). If that call
-   fails, the question still escalates as out-of-scope.
-3. **Classify sensitivity** — one LLM call, structured output
-   (`category`, `score` 1-5, one-sentence `rationale`). Categories:
+   escalate as out-of-scope, keeping the sensitivity/urgency from step 1
+   so an off-handbook sensitive question — e.g. bullying — is triaged
+   accordingly (#38).
+   **Sensitivity rules** (from step 1, structured fields `category`,
+   `score` 1-5, one-sentence `rationale`). Categories:
    `health`, `safety`, `allergies`, `custody_legal`, `emotional_social`,
    `none`. The classifier categorizes by **what the parent needs**, not
    by which topic is mentioned: "my child has a fever, can she come in?"
@@ -53,7 +63,9 @@ full reasoning behind every design choice below; this file states the
    that staff wrote or edited in the dashboard (`source = staff`) and the
    confidence bar passes — a person already made the judgement call.
    Sensitive questions grounded in the seeded handbook still escalate.
-4. **Generate answer + extract claimed facts** — one LLM call, structured
+4. **Generate answer + extract claimed facts** — one LLM call on the
+   standalone question; the conversation is passed for continuity only,
+   never as a source of facts (#45). Structured
    output (`answer`, `claimed_facts: list[str]`). The model must answer
    only from the retrieved excerpts and list every specific factual claim
    it made (times, dollar amounts, ages, phone numbers, named policies) as
@@ -146,6 +158,7 @@ handbook_chunks(id, category, title, content, source, embedding, updated_at)
 --         edited in the operator dashboard) — decision log #28
 question_log(
   id, created_at, question, answer, escalated, escalation_reason,
+  standalone_question, history,
   is_sensitive, is_urgent, urgency_reason, sensitivity_category, sensitivity_score,
   sensitivity_rationale, semantic_score, adherence_score,
   combined_score, threshold_used, retrieved_chunk_ids, claimed_facts,

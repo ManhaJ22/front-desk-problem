@@ -54,3 +54,12 @@ def test_classifier_is_told_how_to_judge_urgency_in_context():
     # Decision log #44: a time word alone isn't urgent.
     assert "is_urgent is true only if" in sensitivity.SYSTEM_INSTRUCTION
     assert "how is the weather today?" in sensitivity.SYSTEM_INSTRUCTION
+
+
+def test_classify_includes_conversation_and_defaults_standalone(fake_generate):
+    fake_generate.responses[SensitivityResult] = result(SensitivityCategory.none, 1)  # blank standalone
+    history = [{"role": "parent", "text": "I'm stuck at work"}, {"role": "assistant", "text": "Sorry to hear that."}]
+    out = classify("Can they be picked up by Uber?", history)
+    prompt = fake_generate.calls[0][0]
+    assert "Conversation so far" in prompt and "Parent: I'm stuck at work" in prompt and "Front desk: Sorry" in prompt
+    assert out.standalone_question == "Can they be picked up by Uber?"  # copied when the model leaves it blank

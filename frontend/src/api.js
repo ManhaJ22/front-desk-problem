@@ -35,9 +35,10 @@ async function request(method, path, body) {
   return res.status === 204 ? null : res.json();
 }
 
-export async function ask(question) {
-  if (USE_MOCKS) return (await mock()).ask(question);
-  return request("POST", "/ask", { question });
+// history: prior chat turns [{role: "parent" | "assistant", text}], last 3 exchanges (decision log #45).
+export async function ask(question, history = []) {
+  if (USE_MOCKS) return (await mock()).ask(question, history);
+  return request("POST", "/ask", { question, history });
 }
 
 export async function listQuestions(view = "needs_review") {

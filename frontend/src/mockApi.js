@@ -75,6 +75,8 @@ const BLANK_LOG = {
   is_sensitive: false,
   is_urgent: false,
   urgency_reason: null,
+  standalone_question: null,
+  history: [],
   sensitivity_category: null,
   sensitivity_score: null,
   sensitivity_rationale: null,
@@ -220,13 +222,13 @@ function chunkTitle(id) {
   return chunks.find((c) => c.id === id)?.title ?? id;
 }
 
-export async function ask(question) {
+export async function ask(question, history = []) {
   await wait();
   const q = question.toLowerCase();
   const rule = CANNED.find((r) => r.match.test(q)) ?? { kind: "oos" };
   if (rule.kind === "error") throw new Error("mock network error");
 
-  const base = { created_at: now(), question, is_urgent: URGENT.test(q) };
+  const base = { created_at: now(), question, history, is_urgent: URGENT.test(q) };
   let entry;
   if (rule.kind === "answer") {
     entry = log({

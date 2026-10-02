@@ -250,10 +250,11 @@ def test_gemini_error_during_classification_escalates_as_system_error(hits, fake
     assert row["retrieved_chunk_ids"] == ["holidays"]  # what happened before the failure is kept
 
 
-def test_gemini_error_during_retrieval_escalates_as_system_error(monkeypatch):
+def test_gemini_error_during_retrieval_escalates_as_system_error(monkeypatch, fake_generate):
     def boom(q):
         raise GeminiError("embed failed")
 
+    fake_generate.responses[SensitivityResult] = sens()
     monkeypatch.setattr(retrieval, "retrieve", boom)
     assert answer_question("q").escalated
     assert only_log_row()["escalation_reason"] == "system_error"
@@ -418,3 +419,51 @@ def test_unverified_partial_answer_is_not_shown(hits, fake_generate):
     res = answer_question("q")
     assert res.answer is None
     assert only_log_row()["escalation_reason"] == "below_threshold"
+
+
+# --- conversation context (decision log #45) -------------------------------------------------
+
+UBER_FOLLOW_UP = "Can they be picked up by Uber?"
+UBER_STANDALONE = "Can my child be picked up from school by an Uber driver? I'm stuck at work."
+HISTORY = [
+    {"role": "parent", "text": "Can my child be picked up from school by another parent, I am stuck at work"},
+    {"role": "assistant", "text": "Children are released only to adults listed as authorized pick-ups."},
+]
+
+
+def test_follow_up_is_rewritten_and_the_rewrite_drives_retrieval_and_generation(monkeypatch, fake_generate):
+    retrieved_with = []
+    monkeypatch.setattr(retrieval, "retrieve", lambda q: retrieved_with.append(q) or [HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = SensitivityResult(
+        category=SensitivityCategory.none, score=1, rationale="r", standalone_question=UBER_STANDALONE
+    )
+    fake_generate.responses[GeneratedAnswer] = ON_TOPIC_ANSWER
+    answer_question(UBER_FOLLOW_UP, HISTORY)
+
+    assert retrieved_with == [UBER_STANDALONE]
+    classify_prompt = next(p for p, _, s in fake_generate.calls if s is SensitivityResult)
+    assert "stuck at work" in classify_prompt and UBER_FOLLOW_UP in classify_prompt
+    gen_prompt = next(p for p, _, s in fake_generate.calls if s is GeneratedAnswer)
+    assert UBER_STANDALONE in gen_prompt and "NOT a source of facts" in gen_prompt
+    row = only_log_row()
+    assert row["question"] == UBER_FOLLOW_UP
+    assert row["standalone_question"] == UBER_STANDALONE
+    assert row["history"] == HISTORY
+
+
+def test_standalone_question_is_not_stored_when_unchanged(hits, fake_generate):
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens()  # classify() copies the question when blank
+    fake_generate.responses[GeneratedAnswer] = ON_TOPIC_ANSWER
+    answer_question("Are you open on Veterans Day?")
+    row = only_log_row()
+    assert row["standalone_question"] is None and row["history"] == []
+
+
+def test_classification_failure_falls_back_to_original_question_for_retrieval(monkeypatch, fake_generate):
+    retrieved_with = []
+    monkeypatch.setattr(retrieval, "retrieve", lambda q: retrieved_with.append(q) or [FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = GeminiError("503")
+    answer_question(UBER_FOLLOW_UP, HISTORY)
+    assert retrieved_with == [UBER_FOLLOW_UP]
+    assert only_log_row()["escalation_reason"] == "out_of_scope"

@@ -1,7 +1,8 @@
-"""The answer pipeline, steps 1-8 from docs/CLAUDE.md. Every question is logged, whatever happens.
+"""The answer pipeline, steps 0-8 from docs/CLAUDE.md. Every question is logged, whatever happens.
 
-retrieve -> out-of-scope short-circuit (classify only) -> classify sensitivity -> generate + claimed facts
--> mechanical adherence -> combine confidence -> sensitive / threshold -> log
+small talk -> classify (sensitivity + urgency + standalone rewrite, sees the conversation) -> retrieve
+-> out-of-scope short-circuit -> generate + claimed facts -> mechanical adherence -> combine confidence
+-> sensitive / threshold -> log
 """
 
 from backend import adherence, config, db, generation, retrieval, sensitivity
@@ -25,39 +26,50 @@ def _record_sensitivity(log: dict, sens: SensitivityResult) -> bool:
     return sensitive
 
 
-def answer_question(question: str) -> AskResponse:
+def answer_question(question: str, history: list[dict] | None = None) -> AskResponse:
+    """`history`: prior chat turns [{role, text}] sent by the parent page (decision log #45)."""
+    history = history or []
+
     # 0. Small talk ("hi", "thanks!") gets a canned reply: no retrieval, no LLM, no staff (decision log #40).
     reply = small_talk_reply(question)
     if reply is not None:
-        log_id = db.insert_log({"question": question, "answer": reply, "escalated": False, "answer_shown": True})
+        log_id = db.insert_log(
+            {"question": question, "history": history, "answer": reply, "escalated": False, "answer_shown": True}
+        )
         return AskResponse(log_id=log_id, escalated=False, answer=reply, message=None, sources=[])
 
     # Keyword urgency is only the fallback; the classifier's judgement replaces it when it runs (#44).
-    log: dict = {"question": question, "is_urgent": is_urgent(question), "escalated": True}
+    log: dict = {"question": question, "history": history, "is_urgent": is_urgent(question), "escalated": True}
     sources: list[Source] = []
 
     try:
-        # 1. Retrieve
-        hits = retrieval.retrieve(question)
+        # 1. Classify first: sensitivity, urgency, and the standalone rewrite of a follow-up (#45).
+        #    A failure here isn't fatal yet: retrieval can still run on the original question.
+        try:
+            sens = sensitivity.classify(question, history)
+        except GeminiError:
+            sens = None
+        sensitive = _record_sensitivity(log, sens) if sens else False
+        standalone = sens.standalone_question.strip() if sens else question
+        if standalone != question:
+            log["standalone_question"] = standalone
+
+        # 2. Retrieve on the standalone question
+        hits = retrieval.retrieve(standalone)
         log["semantic_score"] = retrieval.semantic_score(hits[0].cosine) if hits else 0.0
 
-        # 2. Out-of-scope short-circuit: no generation (nothing to ground an answer in), but still
-        #    classify sensitivity so e.g. a bullying question is triaged as sensitive (decision log #38).
+        # 3. Out-of-scope short-circuit: no generation (nothing to ground an answer in); the
+        #    sensitivity/urgency from step 1 still drive triage, e.g. a bullying question (#38).
         if retrieval.is_out_of_scope(hits):
             log["escalation_reason"] = "out_of_scope"
-            try:
-                _record_sensitivity(log, sensitivity.classify(question))
-            except GeminiError:
-                pass  # classification is extra information here; the question stays out_of_scope
         else:
             context = retrieval.relevant(hits)  # what the model sees AND what facts are checked against
             log["retrieved_chunk_ids"] = [c.id for c in context]
-
-            # 3. Sensitivity
-            sensitive = _record_sensitivity(log, sensitivity.classify(question))
+            if sens is None:
+                raise GeminiError("classification failed for an in-scope question")  # sensitivity unknown
 
             # 4. Generate (runs even when sensitive, so the operator sees the would-have-been answer)
-            gen = generation.generate(question, context)
+            gen = generation.generate(standalone, context, history)
 
             # 5. Mechanical adherence: claimed facts + every number in the answer text
             adh = adherence.check(gen.claimed_facts, context, answer=gen.answer)

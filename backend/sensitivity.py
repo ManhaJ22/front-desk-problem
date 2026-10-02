@@ -12,6 +12,14 @@ SYSTEM_INSTRUCTION = """\
 You classify questions that parents send to the front desk of a daycare / pre-K.
 You do NOT answer the question. You decide how sensitive it is.
 
+You may be shown the conversation so far. Judge the LATEST message in that context, and
+write standalone_question: the latest message rewritten so it makes sense on its own,
+filling in who/what it refers to from the conversation. For example, after "Can my child
+be picked up by another parent? I'm stuck at work", the message "Can they be picked up by
+Uber?" becomes "Can my child be picked up from school by an Uber driver? I'm stuck at
+work." Keep the parent's meaning and voice; don't answer it or add new facts. If the
+latest message already stands alone, copy it unchanged.
+
 Classify by what the parent NEEDS, not by which topics are mentioned. Use a sensitive
 category when a person's judgement is needed about a specific child's situation. Routine
 logistics or general policy questions that merely mention a topic are `none`:
@@ -47,10 +55,23 @@ today?" are not urgent. urgency_reason: one short sentence, or empty if not urge
 """
 
 
-def classify(question: str) -> SensitivityResult:
-    """The model sees the question only, never handbook text."""
-    result = gemini.generate_structured(f"Parent's question:\n{question}", SYSTEM_INSTRUCTION, SensitivityResult)
+def format_history(history: list[dict]) -> str:
+    return "\n".join(f"{'Parent' if t['role'] == 'parent' else 'Front desk'}: {t['text']}" for t in history)
+
+
+def build_prompt(question: str, history: list[dict] | None = None) -> str:
+    """The conversation (if any) plus the latest message. Never retrieved handbook text."""
+    if not history:
+        return f"Parent's question:\n{question}"
+    return f"Conversation so far:\n{format_history(history)}\n\nLatest message from the parent:\n{question}"
+
+
+def classify(question: str, history: list[dict] | None = None) -> SensitivityResult:
+    """Sensitivity, urgency, and a standalone rewrite of the latest message (decision log #45)."""
+    result = gemini.generate_structured(build_prompt(question, history), SYSTEM_INSTRUCTION, SensitivityResult)
     result.score = max(1, min(5, result.score))
+    if not result.standalone_question.strip():
+        result.standalone_question = question
     return result
 
 

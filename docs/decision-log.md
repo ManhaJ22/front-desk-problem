@@ -696,6 +696,35 @@ was flaky across runs. The generation prompt now says partial answers must
 still list every fact they state from the policy; 3/3 live runs then
 showed the answer with its source and staff note.
 
+### 46. Conversational polish: fit the latest message, conditions as a checklist, one staff note — 2026-10-01
+Found in a live two-turn conversation: after "but she says she's fine",
+the bot replied "I am sorry to hear she has been unwell", repeated the
+apology from its previous turn, listed the whole illness policy
+(including pink eye), and ended with "our policy does not state whether
+she can return today" — accurate (every fact verified) but robotic.
+Changes (generation prompt; verification unchanged):
+- The acknowledgment must fit the parent's latest message in context —
+  good news gets "So glad she's feeling better!", and no repeated apology.
+- When a policy states conditions (return rules), give them as a
+  checklist the parent can apply ("she can come back once…"). This is
+  distinct from #42: stating the policy's own criteria is grounded;
+  concluding from what a policy *leaves out* is still forbidden.
+- Share only the parts of a policy that fit the question.
+- Parent chat shows the full staff note ("I've also shared your question
+  with the Little Acorns staff…") once per conversation; later escalated
+  turns show "Our staff have this one too." Display-only — every turn is
+  still escalated and logged.
+Second pass after a live re-run (1 of 2 runs still slipped): the
+classifier's rewrite invented intent ("my child is sick" → "…and will not
+be attending today") and the answer assumed "he" and told the parent to
+"use your best judgment". Added: the rewrite must not add intentions or
+details or assume gender; answers use the parent's own pronouns (else
+"your child") and never hand the decision back as "use your judgment" —
+they give the conditions. 3/3 live runs of the conversation then behaved.
+Trade-offs: "relevant parts only" is the model's judgement and could omit
+a criterion the parent needed; the shortened note drops the phone number
+on later turns (it's still in the earlier message).
+
 ---
 
 ## Known limitations and trade-offs (summary for the write-up)

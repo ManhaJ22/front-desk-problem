@@ -5,6 +5,7 @@ import SuggestedQuestions from "../components/SuggestedQuestions.jsx";
 
 const MAX_LEN = 500;
 const HISTORY_TURNS = 6; // last 3 exchanges sent as context (decision log #45)
+const SHORT_STAFF_NOTE = "Our staff have this one too.";
 
 // Chat bubbles -> the turns the backend uses to understand follow-ups. Errors aren't sent.
 function toHistory(messages) {
@@ -35,6 +36,8 @@ export default function ParentChat() {
     const question = text.trim();
     if (!question || sending) return;
     const history = toHistory(messages); // before adding the new question
+    // Full staff note once per conversation; later turns get a short version (decision log #46).
+    const noteShownBefore = messages.some((m) => m.note);
     setMessages((m) => [...m, { kind: "parent", text: question }]);
     setDraft("");
     setSending(true);
@@ -44,7 +47,12 @@ export default function ParentChat() {
         ...m,
         res.answer
           ? // Answered, or a sensitive question with a verified answer + staff note (decision log #37).
-            { kind: "answer", text: res.answer, sources: res.sources, note: res.escalated ? res.message : null }
+            {
+              kind: "answer",
+              text: res.answer,
+              sources: res.sources,
+              note: res.escalated ? (noteShownBefore ? SHORT_STAFF_NOTE : res.message) : null,
+            }
           : { kind: "escalated", text: res.message },
       ]);
     } catch {

@@ -28,3 +28,7 @@ def test_generate_uses_structured_schema_and_grounding_rules(fake_generate):
     assert "Write every number in digits" in system_instruction  # decision log #23
     assert "never conclude yes or no from what a policy leaves out" in system_instruction  # #42
     assert "fully_answers_question" in system_instruction
+    # Decision log #46: conditions as a checklist, relevant parts only, acknowledgment fits the latest message.
+    assert "give them as conditions the" in system_instruction
+    assert "Share only the parts of a policy that fit" in system_instruction
+    assert "must fit the parent's LATEST message" in system_instruction

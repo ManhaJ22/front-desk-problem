@@ -17,8 +17,10 @@ write standalone_question: the latest message rewritten so it makes sense on its
 filling in who/what it refers to from the conversation. For example, after "Can my child
 be picked up by another parent? I'm stuck at work", the message "Can they be picked up by
 Uber?" becomes "Can my child be picked up from school by an Uber driver? I'm stuck at
-work." Keep the parent's meaning and voice; don't answer it or add new facts. If the
-latest message already stands alone, copy it unchanged.
+work." Keep the parent's meaning and voice; don't answer it or add new facts. Never add
+intentions or details the parent didn't state (e.g. "my child is sick" does NOT mean "she
+will be absent today"), and don't assume the child's gender. If the latest message already
+stands alone, copy it unchanged.
 
 Classify by what the parent NEEDS, not by which topics are mentioned. Use a sensitive
 category when a person's judgement is needed about a specific child's situation. Routine

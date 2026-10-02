@@ -337,7 +337,7 @@ Detailed build plan: `docs/plans/frontend-plan.md`.
 - `styles.css`: mobile-first, max content width 640px for the parent view and wider for the operator view, CSS variables for colors.
 
 **Parent view**
-- `pages/ParentChat.jsx`: sends the last 3 exchanges (6 turns, errors excluded) as `history` with each question (#45); center name header; message list (kept in component state for the session only); text input with a 500-character limit; send is disabled while waiting, and a "Checking the handbook…" indicator shows.
+- `pages/ParentChat.jsx`: sends the last 3 exchanges (6 turns, errors excluded) as `history` with each question (#45); shows the full staff note once per conversation, then "Our staff have this one too." (#46); center name header; message list (kept in component state for the session only); text input with a 500-character limit; send is disabled while waiting, and a "Checking the handbook…" indicator shows.
 - `components/SuggestedQuestions.jsx`: chips for the five Brightwheel example questions, shown until the first message is sent.
 - `components/ChatMessage.jsx`: parent bubble / answer bubble with "From the handbook: <title>" tags / escalation bubble. The escalation bubble uses a calm, neutral style, not error red, and shows only `message`. When a response has both `answer` and `message` (sensitive + verified, #37), it renders as an answer bubble with sources and the staff note underneath.
 - Network failure → "Sorry, something went wrong — please try again or call (555) 014-2200." This is the one place the frontend shows anything other than an answer or the escalation message.

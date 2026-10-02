@@ -367,7 +367,7 @@ export async function deleteChunk(id) {
 
 export async function getStats() {
   await wait();
-  const by_reason = { out_of_scope: 0, sensitive_forced: 0, below_threshold: 0, system_error: 0 };
+  const by_reason = { out_of_scope: 0, sensitive_forced: 0, below_threshold: 0, partial_answer: 0, system_error: 0 };
   for (const q of questions) if (q.escalation_reason) by_reason[q.escalation_reason]++;
   const escalated = questions.filter((q) => q.escalated).length;
   return {

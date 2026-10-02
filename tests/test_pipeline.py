@@ -152,7 +152,7 @@ def test_sensitive_unverified_answer_is_never_shown(hits, fake_generate):
     )
     res = answer_question("q")
     assert res.escalated and res.answer is None and res.sources == []
-    assert res.message == config.ESCALATION_MESSAGE
+    assert res.message == config.SENSITIVITY_OPENERS["health"] + config.ESCALATION_MESSAGE  # soft opener (#41)
     row = only_log_row()
     assert row["answer_shown"] is False
     assert row["answer"] == "Yes, open until 8:00 PM."  # still logged for the operator
@@ -313,3 +313,84 @@ def test_sensitive_staff_answer_with_unsupported_number_escalates(hits, fake_gen
     hits([STAFF_SICK])
     res = sick_question(fake_generate, "Call us at (555) 014-2200 within 2 hours.", ["call us at (555) 014-2200"])
     assert res.escalated
+
+
+# --- small talk (#40) and soft openers (#41) ---------------------------------------------------
+
+
+def test_greeting_skips_the_pipeline_and_is_logged(hits, fake_generate, fake_embed):
+    hits([HOLIDAYS])
+    res = answer_question("Hello!")
+    assert not res.escalated and res.answer == config.GREETING_RESPONSE and res.sources == []
+    assert fake_generate.calls == [] and fake_embed.calls == []  # no retrieval, no LLM
+    row = only_log_row()
+    assert row["escalated"] is False and row["answer"] == config.GREETING_RESPONSE
+
+
+def test_greeting_plus_question_runs_the_pipeline(hits, fake_generate):
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens()
+    fake_generate.responses[GeneratedAnswer] = ON_TOPIC_ANSWER
+    res = answer_question("Hi! Are you open on Veterans Day?")
+    assert res.answer == ON_TOPIC_ANSWER.answer
+
+
+@pytest.mark.parametrize(
+    "category, opener",
+    [
+        (SensitivityCategory.emotional_social, "I'm sorry to hear that — that sounds hard. "),
+        (SensitivityCategory.health, "I'm sorry to hear your little one isn't feeling well. "),
+        (SensitivityCategory.safety, ""),
+        (SensitivityCategory.custody_legal, ""),
+    ],
+)
+def test_sensitive_message_only_escalation_gets_category_opener(hits, fake_generate, category, opener):
+    hits([FAR_AWAY])  # out of scope -> no answer to show
+    fake_generate.responses[SensitivityResult] = sens(category, 5)
+    res = answer_question("q")
+    assert res.message == opener + config.ESCALATION_MESSAGE
+
+
+def test_non_sensitive_escalation_has_no_opener(hits, fake_generate):
+    hits([FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = sens()
+    assert answer_question("Do you offer swim lessons?").message == config.ESCALATION_MESSAGE
+
+
+def test_verified_sensitive_answer_gets_no_extra_opener(hits, fake_generate):
+    # The generation prompt adds its own acknowledgment (#39); the staff note stays plain (#37).
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens(SensitivityCategory.health, 4)
+    fake_generate.responses[GeneratedAnswer] = ON_TOPIC_ANSWER
+    res = answer_question("q")
+    assert res.message == config.SENSITIVE_ANSWER_NOTE
+
+
+# --- handbook gaps: share the related policy, escalate the gap (#42) ---------------------------
+
+
+def test_verified_partial_answer_is_shown_and_escalated_as_handbook_gap(hits, fake_generate):
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens()
+    fake_generate.responses[GeneratedAnswer] = GeneratedAnswer(
+        answer="We're open on Veterans Day, 7:00 AM to 6:00 PM. Our handbook doesn't cover the parade.",
+        claimed_facts=["OPEN on Veterans Day", "7:00 AM to 6:00 PM"],
+        fully_answers_question=False,
+    )
+    res = answer_question("Are you open on Veterans Day, and will you join the parade?")
+    assert res.escalated and res.answer and res.message == config.SENSITIVE_ANSWER_NOTE
+    assert [s.id for s in res.sources] == ["holidays"]
+    row = only_log_row()
+    assert row["escalation_reason"] == "partial_answer" and row["answer_shown"] is True
+    assert db.list_logs("needs_review")  # the gap reaches the staff queue
+
+
+def test_unverified_partial_answer_is_not_shown(hits, fake_generate):
+    hits([HOLIDAYS])
+    fake_generate.responses[SensitivityResult] = sens()
+    fake_generate.responses[GeneratedAnswer] = GeneratedAnswer(
+        answer="Open until 8:00 PM.", claimed_facts=["open until 8:00 PM"], fully_answers_question=False
+    )
+    res = answer_question("q")
+    assert res.answer is None
+    assert only_log_row()["escalation_reason"] == "below_threshold"

@@ -57,6 +57,7 @@ front-desk-problem/
 │   ├── generation.py             # answer + claimed_facts call
 │   ├── adherence.py              # mechanical token-overlap check
 │   ├── urgency.py                # static keyword detection
+│   ├── small_talk.py             # greetings / thanks handled before the pipeline (#40)
 │   ├── triage.py                 # priority ordering for the operator queue
 │   ├── pipeline.py               # orchestrates steps 1–8, logs
 │   └── routes/
@@ -70,6 +71,7 @@ front-desk-problem/
 │   ├── conftest.py
 │   ├── test_adherence.py
 │   ├── test_urgency.py
+│   ├── test_small_talk.py
 │   ├── test_triage.py
 │   ├── test_kb.py
 │   ├── test_sensitivity.py
@@ -138,6 +140,8 @@ Reads `.env` once with `load_dotenv()`. Every number that changes behavior lives
 | `SENSITIVE_CATEGORY_MIN_SCORE` | `3` | a non-`none` category counts as sensitive only at this raw score or above (#25) |
 | `FACT_TOKEN_MATCH_RATIO` | `0.7` | see adherence |
 | `ESCALATION_MESSAGE` | text from (L) | shown when no answer is shown |
+| `SENSITIVITY_OPENERS` | per category, e.g. health → "I'm sorry to hear your little one isn't feeling well. "; safety / custody_legal → "" | prefixed to `ESCALATION_MESSAGE` for sensitive message-only escalations (#41) |
+| `GREETING_RESPONSE` / `THANKS_RESPONSE` | canned small-talk replies | used by `small_talk.py` (#40) |
 | `SENSITIVE_ANSWER_NOTE` | "I've also shared your question with the Little Acorns staff. If it's urgent, call (555) 014-2200." | shown under a verified answer to a sensitive question (#37) |
 | `KB_CATEGORIES` | `general, calendar, tuition, enrollment, health, meals, daily, safety, development, faq` | topic categories for chunks (not the same thing as sensitivity categories) |
 
@@ -161,7 +165,7 @@ question_log(
   question TEXT NOT NULL,
   answer TEXT,                   -- generated answer (shown OR would-have-been); NULL if out_of_scope/system_error
   escalated INTEGER NOT NULL,    -- 0/1
-  escalation_reason TEXT,        -- (A) out_of_scope | sensitive_forced | below_threshold | system_error | NULL
+  escalation_reason TEXT,        -- (A) out_of_scope | sensitive_forced | below_threshold | partial_answer | system_error | NULL
   is_sensitive INTEGER NOT NULL DEFAULT 0,
   is_urgent INTEGER NOT NULL DEFAULT 0,   -- (A)
   sensitivity_category TEXT,     -- NULL when classification didn't run
@@ -184,7 +188,7 @@ question_log(
 LLM output models (passed as `response_schema`):
 - `SensitivityCategory(str, Enum)`: `health, safety, allergies, custody_legal, emotional_social, none`
 - `SensitivityResult`: `category: SensitivityCategory`, `score: int` (1–5), `rationale: str`
-- `GeneratedAnswer`: `answer: str`, `claimed_facts: list[str]`
+- `GeneratedAnswer`: `answer: str`, `claimed_facts: list[str]`, `fully_answers_question: bool` (false when the excerpts only partly cover the question, #42)
 
 API models: `AskRequest`, `AskResponse`, `Source`, `ChunkIn`, `ChunkOut`, `QuestionOut`, `AddToKbRequest`, `Stats` (fields under **API contract**).
 
@@ -235,12 +239,19 @@ The only module that imports `google.genai`. Tests mock these two functions.
 - `URGENT_PHRASES` (case-insensitive, whole-word/phrase): `today, tonight, right now, asap, urgent, emergency, this morning, this afternoon, pick up early, pickup early, picking up early, early pickup, running late, on my way, immediately`.
 - `is_urgent(question) -> bool`. Static: no date parsing (decision #5).
 
+### `small_talk.py` (decision log #40)
+- `small_talk_reply(question) -> str | None`: returns a canned reply if the whole message is a greeting ("hi", "good morning", "hey there") or thanks ("thanks!", "thank you so much"), else `None`. Whole-word matching only — "high fever today" is not a greeting — and only short messages (a greeting plus filler words); "hi, my child is sick" goes through the pipeline.
+- No LLM, no retrieval, no staff notification; the exchange is still logged as answered.
+
 ### `triage.py`
 - `priority(is_sensitive, is_urgent) -> int`: 1 = sensitive+urgent, 2 = urgent, 3 = sensitive, 4 = neither.
 - `sort_queue(rows)`: unresolved before resolved, then `priority` ascending, then `combined_score` ascending (weakest first, NULL first), then newest first.
 
 ### `pipeline.py`
 `answer_question(question) -> AskResponse`:
+
+Step 0: `small_talk_reply(question)` — if it returns text, log it as answered and return it; nothing else runs (#40).
+On a message-only escalation of a sensitive question, `message = SENSITIVITY_OPENERS[category] + ESCALATION_MESSAGE` (#41).
 
 ```
 urgent = is_urgent(q)
@@ -255,7 +266,8 @@ try:
   combined = 0.35*sem + 0.65*adh.score
   staff_backed = every claimed fact matched, every match in a source='staff' chunk, no bad numbers  (#28)
   if sensitive and not (staff_backed and combined >= 0.80): escalate("sensitive_forced")
-  elif combined < 0.80:        escalate("below_threshold")
+  elif not verified:           escalate("below_threshold")
+  elif not gen.fully_answers_question: escalate("partial_answer"), show verified answer + staff note  (#42)
   else:                        answer
 except GeminiError / API error:          escalate("system_error")  (E)
 always: insert_log(...)
@@ -279,7 +291,7 @@ Returns: answered → `answer` + `sources` (chunks that backed a matched fact, K
 | `POST /api/operator/kb` | `{category, title, content}` | `ChunkOut` |
 | `PUT /api/operator/kb/{id}` | `{category, title, content}` | `ChunkOut` |
 | `DELETE /api/operator/kb/{id}` | — | `204` |
-| `GET /api/operator/stats` | — | `{total, answered, escalated, unresolved, by_reason: {out_of_scope, sensitive_forced, below_threshold, system_error}}` |
+| `GET /api/operator/stats` | — | `{total, answered, escalated, unresolved, by_reason: {out_of_scope, sensitive_forced, below_threshold, partial_answer, system_error}}` |
 
 ---
 
@@ -292,6 +304,7 @@ No test calls Gemini; `backend.gemini.embed` and `generate_structured` are monke
 - `conftest.py`: temporary `DB_PATH`, fake embedder (deterministic bag-of-words vectors so retrieval behaves sensibly), fake generator fixtures.
 - `test_adherence.py`: exact match, paraphrase, number mismatch fails, a fact stitched together from two chunks fails, zero facts → 0, number normalization (`7:00 AM` vs `7 AM`, `$2,150` vs `2150`); answer-number check: an unlisted number in the answer that's missing from the sources is unmatched and lowers the score, a number present in any chunk passes, spelled-out words aren't treated as numbers.
 - `test_urgency.py`: each phrase triggers; near-misses don't trigger (e.g. "nowhere" doesn't match "now").
+- `test_small_talk.py`: greetings/thanks (with punctuation, case, filler like "there") get a reply; questions that merely start with a greeting word or share its letters ("high fever today", "history of the center?", "hi, my child is sick") don't.
 - `test_triage.py`: priority order 1–4 and the full sort order.
 - `test_kb.py`: data layer: `init_db` is idempotent; `seed_if_empty` seeds every handbook chunk in one `RETRIEVAL_DOCUMENT` embed call and is a no-op the second time; `create_chunk` slugs titles and de-duplicates ids; `update_chunk` re-embeds and bumps `updated_at`; delete; chunk listings never expose embeddings; `insert_log`/`list_logs` round-trip JSON + booleans and filter `needs_review`; `mark_resolved`.
 - `test_sensitivity.py`: `normalized()` maps 1→0.0 … 5→1.0; `is_sensitive()`: a non-`none` category is sensitive at score ≥ 3 but not at 1–2; any category is sensitive at score ≥ 4 (the 0.70 boundary); `classify()` passes the schema and question-only prompt to `generate_structured` (mocked).

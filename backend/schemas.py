@@ -31,6 +31,8 @@ class SensitivityResult(BaseModel):
 class GeneratedAnswer(BaseModel):
     answer: str
     claimed_facts: list[str]
+    # False when the excerpts only partly cover the question (decision log #42).
+    fully_answers_question: bool = True
 
 
 # --- API ---------------------------------------------------------------------------------

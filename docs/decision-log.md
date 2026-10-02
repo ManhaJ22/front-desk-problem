@@ -544,6 +544,78 @@ Trade-off: one LLM call per out-of-scope question, including greetings
 and gibberish; the original "spend no calls on irrelevant questions"
 saving is reduced from two calls to one.
 
+### 39. Conversational tone in the generation prompt — 2026-10-01
+The user rewrote the generation system prompt to sound like a warm person
+at the front desk rather than a policy lookup: vary phrasing, plain
+prose, and open with one brief acknowledgment ("I'm sorry to hear that")
+only when the question is about a child being unwell, upset, or
+struggling. Tone sits on top of unchanged hard rules: excerpts only,
+digits exactly as written (the number check depends on it, #23), say
+plainly when unsure, and the empathy line is excluded from
+`claimed_facts` (it isn't a factual claim, so it can't fail adherence).
+Trade-off: a warmer model has more room to add unlisted, non-numeric
+filler — still only partially covered by verification (#23 limits).
+
+### 40. Greetings and thanks handled before the pipeline — 2026-10-01
+"hello" used to fall through retrieval, fail the floor, and land in the
+staff queue as "Not in handbook" (#38 even spent a classifier call on
+it). Now `backend/small_talk.py` replies to a message that is *only* a
+greeting ("hi", "good morning", "hey there!") or thanks ("thank you so
+much") with a friendly canned line — no retrieval, no LLM, no staff
+notification — and logs it as answered.
+Based on the user's `GREETING_PATTERNS` / `is_greeting`, with one fix:
+matching is whole-word. The original prefix match (`startswith("hi")`
+on ≤3 words) would have treated "high fever today" or "history of the
+center?" as greetings — a sick-child message answered with "Hi there!".
+A greeting followed by a real question ("hi, my child is sick") still
+goes through the full pipeline.
+Trade-offs: canned replies (no variety); exact phrase lists miss
+creative small talk ("yo", "morning!!") — those fall back to the old
+out-of-scope path, which fails safe.
+
+### 41. Soft openers on sensitive escalations — 2026-10-01
+When a sensitive question escalates *without* an answer shown, the
+staff-notified message now opens with a short, category-specific line
+(user's `SENSITIVITY_OPENERS`): health → "I'm sorry to hear your little
+one isn't feeling well.", emotional_social → "I'm sorry to hear that —
+that sounds hard.", allergies → "Thanks for flagging that — allergies
+are something we take seriously."; safety and custody_legal get none
+(an opener can read as presumptuous there). Not added when a verified
+answer is shown (#37) — the generation prompt already opens with an
+acknowledgment (#39), so it would double up.
+Trade-off: the opener follows the classifier's *category*, not the
+specific wording — a health-tagged question that isn't about illness
+(e.g. medication paperwork scored 3+) would get "isn't feeling well".
+
+### 42. Handbook gaps: share the related policy, escalate the gap — 2026-10-01
+Found in the deployed demo: "my kid has a runny nose, can he come in? he
+seems fine otherwise" got "I'm not sure" — correct but a dead end. The
+handbook's Illness Policy names specific exclusions (fever 100.4°F+,
+vomiting, diarrhea, pink eye) and says nothing about mild cold symptoms.
+The user asked whether the model should "intuitively" apply the illness
+policy. It can't do so honestly: "sick → stay home" over-applies the
+policy (sends a well kid home on the bot's say-so) and "not listed → can
+come" infers from silence — either way the bot would be making the
+center's health call. Retrieval was fine (Illness Policy ranked 1st);
+raising TOP_K would only add below-floor chunks.
+
+Rule now: when the excerpts contain a closely related policy but don't
+fully answer, the model shares what the policy actually says, states
+clearly what it doesn't cover, and never concludes yes/no from what's
+left out. It reports `fully_answers_question` as a **structured field**
+(no free-text parsing). A verified partial answer is shown with the
+system's staff note and escalates as `partial_answer` ("Handbook gap") so
+the gap reaches the dashboard. The model is told never to claim it
+contacted staff — the system adds that note only when it's true.
+Without this field, a non-sensitive partial answer could pass every check,
+be logged as answered, promise nothing, and hide the gap from staff.
+
+Trade-offs: relies on the model's self-report of completeness (a model
+that overclaims "fully answered" just behaves like before — answered, no
+escalation; facts are still verified either way); more questions reach
+the staff queue; the real fix for a recurring gap is still content (e.g.
+add a mild-symptoms line to the Illness Policy via the dashboard).
+
 ---
 
 ## Known limitations and trade-offs (summary for the write-up)
@@ -575,8 +647,8 @@ Grouped; numbers point to the decisions above.
   fever-free") and nothing flagged it.
 - Out-of-scope questions cost one LLM call (sensitivity) even when
   they're off-topic noise (#38).
-- Greetings ("hello") escalate as out of scope and add queue noise —
-  not handled.
+- Small talk is matched against fixed phrase lists; creative greetings
+  ("yo", "morning!!") still fall through to out-of-scope (#40).
 - Nonsense input (e.g. keyboard smash like "asdfjkl;") is treated like
   any off-topic question: it fails the similarity floor and lands in the
   staff dashboard as "Not in handbook". Minor edge case — parents asking

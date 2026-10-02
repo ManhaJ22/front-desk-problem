@@ -17,6 +17,10 @@ export const REASONS = {
     detail: (q) =>
       `Combined ${fmtScore(q.combined_score)} was below the ${fmtScore(q.threshold_used)} bar.`,
   },
+  partial_answer: {
+    label: "Handbook gap",
+    detail: () => "Answered what the handbook covers; the rest needs a staff answer.",
+  },
   system_error: {
     label: "System error",
     detail: () => "The AI service failed; the question was escalated to be safe.",

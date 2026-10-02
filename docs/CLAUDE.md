@@ -23,6 +23,9 @@ full reasoning behind every design choice below; this file states the
 
 ## Architecture (pipeline, in order)
 
+0. **Small talk** — a message that is only a greeting or thanks ("hi",
+   "good morning", "thank you!") gets a friendly canned reply: no
+   retrieval, no LLM, no staff notification; still logged (decision log #40).
 1. **Retrieve** — embed the parent's question (Gemini's embedding model —
    see Tech Stack for exact model id), cosine-similarity against stored
    handbook chunk embeddings.
@@ -85,9 +88,19 @@ full reasoning behind every design choice below; this file states the
   also shared your question with the Little Acorns staff. If it's urgent,
   call (555) 014-2200." The question still lands in the staff queue
   (`escalated = true`, `answer_shown = true`).
+- **Verified partial answer → answer AND notify staff** (#42): if the
+  model reports (structured field `fully_answers_question = false`) that
+  the excerpts only partly cover the question, a verified answer sharing
+  what the handbook *does* say is shown with the staff note, and the
+  question escalates as `partial_answer` ("Handbook gap") so staff can
+  fill it. The model never decides yes/no from what a policy leaves out,
+  and never claims to have contacted staff itself.
 - **Every other escalation** — out-of-scope, below-threshold, system
   error, or sensitive with an answer that didn't fully verify — shows
-  only the staff-notified message with the phone number (#25). An
+  only the staff-notified message with the phone number (#25). For a
+  sensitive question, a short category-specific opener comes first
+  ("I'm sorry to hear that — that sounds hard. …"; none for safety or
+  custody/legal) — decision log #41. An
   unverified answer is never shown.
 - Sensitive questions fully backed by staff-written entries are simply
   answered, without notifying staff (#28).
@@ -136,7 +149,7 @@ question_log(
 ```
 
 `escalation_reason` is one of `out_of_scope`, `sensitive_forced`,
-`below_threshold`, `system_error` (NULL when answered). `answer_shown`
+`below_threshold`, `partial_answer`, `system_error` (NULL when answered). `answer_shown`
 is true when the parent saw the generated answer (answered, or escalated
 with a verified answer — #37). Full column types
 are in `docs/architecture.md` (decision log #14).

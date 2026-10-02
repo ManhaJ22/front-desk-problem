@@ -26,3 +26,5 @@ def test_generate_uses_structured_schema_and_grounding_rules(fake_generate):
     assert "ONLY from the handbook excerpts" in system_instruction
     assert "claimed_facts" in system_instruction
     assert "Write every number in digits" in system_instruction  # decision log #23
+    assert "never conclude yes or no from what a policy leaves out" in system_instruction  # #42
+    assert "fully_answers_question" in system_instruction

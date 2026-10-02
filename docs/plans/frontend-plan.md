@@ -91,6 +91,7 @@ Neither one blocks it:
 | `out_of_scope` | Not in handbook | Nothing in the handbook matched closely enough. |
 | `sensitive_forced` | Sensitive topic | Always sent to staff: <category, or "sensitivity score n/5">. |
 | `below_threshold` | Low confidence | Combined <x.xx> was below the 0.80 bar. |
+| `partial_answer` | Handbook gap | Answered what the handbook covers; the rest needs staff (#42). |
 | `system_error` | System error | The AI service failed; the question was escalated to be safe. |
 | (null) | Answered | — |
 

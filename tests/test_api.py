@@ -19,7 +19,7 @@ QUESTION_KEYS = {
 }  # fmt: skip
 CHUNK_KEYS = {"id", "category", "title", "content", "source", "updated_at"}
 STATS_KEYS = {"total", "answered", "escalated", "unresolved", "by_reason"}
-REASONS = {"out_of_scope", "sensitive_forced", "below_threshold", "system_error"}
+REASONS = {"out_of_scope", "sensitive_forced", "below_threshold", "partial_answer", "system_error"}
 
 HOLIDAYS = RetrievedChunk("holidays", "Holiday Closures", "Little Acorns is OPEN on Veterans Day.", 0.9)
 

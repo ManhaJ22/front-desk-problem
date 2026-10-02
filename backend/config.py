@@ -49,10 +49,24 @@ ESCALATION_MESSAGE = (
     "Thanks for your question. I've notified the Little Acorns staff about it. "
     "If it's urgent, call (555) 014-2200."
 )
-# Shown under a fully verified answer to a sensitive question, which still goes to staff (#37).
+# Shown under a verified answer that still goes to staff: sensitive (#37) or a handbook gap (#42).
 SENSITIVE_ANSWER_NOTE = (
     "I've also shared your question with the Little Acorns staff. If it's urgent, call (555) 014-2200."
 )
+# Prefixed to ESCALATION_MESSAGE when a sensitive question gets no answer (decision log #41).
+# None for safety / custody_legal: an opener can read as presumptuous there.
+SENSITIVITY_OPENERS = {
+    "health": "I'm sorry to hear your little one isn't feeling well. ",
+    "emotional_social": "I'm sorry to hear that — that sounds hard. ",
+    "allergies": "Thanks for flagging that — allergies are something we take seriously. ",
+    "safety": "",
+    "custody_legal": "",
+}
+# Small talk, handled before the pipeline (decision log #40).
+GREETING_RESPONSE = (
+    "Hi there! Ask me anything about Little Acorns — hours, tuition, illness policy, tours, whatever you need."
+)
+THANKS_RESPONSE = "You're welcome! Is there anything else I can help you with?"
 
 # Topic categories for handbook chunks (not sensitivity categories). Mirrored in frontend/src/api.js.
 KB_CATEGORIES = [

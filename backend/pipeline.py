@@ -7,6 +7,7 @@ retrieve -> out-of-scope short-circuit (classify only) -> classify sensitivity -
 from backend import adherence, config, db, generation, retrieval, sensitivity
 from backend.gemini import GeminiError
 from backend.schemas import AskResponse, SensitivityResult, Source
+from backend.small_talk import small_talk_reply
 from backend.urgency import is_urgent
 
 
@@ -22,6 +23,12 @@ def _record_sensitivity(log: dict, sens: SensitivityResult) -> bool:
 
 
 def answer_question(question: str) -> AskResponse:
+    # 0. Small talk ("hi", "thanks!") gets a canned reply: no retrieval, no LLM, no staff (decision log #40).
+    reply = small_talk_reply(question)
+    if reply is not None:
+        log_id = db.insert_log({"question": question, "answer": reply, "escalated": False, "answer_shown": True})
+        return AskResponse(log_id=log_id, escalated=False, answer=reply, message=None, sources=[])
+
     log: dict = {"question": question, "is_urgent": is_urgent(question), "escalated": True}
     sources: list[Source] = []
 
@@ -84,6 +91,10 @@ def answer_question(question: str) -> AskResponse:
                 log["answer_shown"] = verified
             elif not verified:
                 log["escalation_reason"] = "below_threshold"
+            elif not gen.fully_answers_question:
+                # Verified answer to the part the handbook covers; staff fill the gap (decision log #42).
+                log["escalation_reason"] = "partial_answer"
+                log["answer_shown"] = True
             else:
                 log["escalated"] = False
                 log["answer_shown"] = True
@@ -104,4 +115,6 @@ def answer_question(question: str) -> AskResponse:
         return AskResponse(
             log_id=log_id, escalated=True, answer=log["answer"], message=config.SENSITIVE_ANSWER_NOTE, sources=sources
         )
-    return AskResponse(log_id=log_id, escalated=True, answer=None, message=config.ESCALATION_MESSAGE, sources=[])
+    # Message-only escalation; sensitive questions get a soft opener first (decision log #41).
+    opener = config.SENSITIVITY_OPENERS.get(log.get("sensitivity_category"), "") if log.get("is_sensitive") else ""
+    return AskResponse(log_id=log_id, escalated=True, answer=None, message=opener + config.ESCALATION_MESSAGE, sources=[])

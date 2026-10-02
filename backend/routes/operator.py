@@ -10,7 +10,7 @@ from backend.triage import priority, sort_queue
 
 router = APIRouter(prefix="/operator")
 
-ESCALATION_REASONS = ("out_of_scope", "sensitive_forced", "below_threshold", "system_error")
+ESCALATION_REASONS = ("out_of_scope", "sensitive_forced", "below_threshold", "partial_answer", "system_error")
 
 
 def _with_priority(row: dict) -> dict:

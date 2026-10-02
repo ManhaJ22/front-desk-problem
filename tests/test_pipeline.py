@@ -259,11 +259,35 @@ def test_gemini_error_during_retrieval_escalates_as_system_error(monkeypatch):
     assert only_log_row()["escalation_reason"] == "system_error"
 
 
-def test_urgency_is_logged_on_every_path(hits, fake_generate):
+# --- urgency is judged in context by the classifier (decision log #44) ------------------------
+
+
+def test_time_word_alone_is_not_urgent_when_classifier_says_so(hits, fake_generate):
     hits([FAR_AWAY])
-    fake_generate.responses[SensitivityResult] = sens()
+    fake_generate.responses[SensitivityResult] = sens()  # is_urgent=False
+    answer_question("how is the weather today?")  # contains the keyword "today"
+    row = only_log_row()
+    assert row["is_urgent"] is False and row["urgency_reason"] is None
+
+
+def test_classifier_flags_urgency_without_keywords(hits, fake_generate):
+    hits([FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = SensitivityResult(
+        category=SensitivityCategory.safety, score=5, rationale="r",
+        is_urgent=True, urgency_reason="Nobody can collect the child this afternoon.",
+    )
+    answer_question("No one can pick up my child after school, can someone take care of him?")
+    row = only_log_row()
+    assert row["is_urgent"] is True
+    assert row["urgency_reason"] == "Nobody can collect the child this afternoon."
+
+
+def test_keyword_urgency_is_the_fallback_when_classification_fails(hits, fake_generate):
+    hits([FAR_AWAY])
+    fake_generate.responses[SensitivityResult] = GeminiError("503")
     answer_question("Can I pick up early today?")
-    assert only_log_row()["is_urgent"] is True
+    row = only_log_row()
+    assert row["is_urgent"] is True and row["urgency_reason"] is None
 
 
 # --- staff-written answers win over the sensitivity rule (decision log #28) --------------------

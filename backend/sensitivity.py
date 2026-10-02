@@ -37,6 +37,13 @@ Score from 1 to 5 how much the question needs a human to handle it:
 1 = routine, an automated answer is fine; 3 = some care needed; 5 = staff must handle it.
 
 Rationale: one short sentence explaining the category and score.
+
+Urgency (separate from sensitivity): is_urgent is true only if the question needs staff
+attention TODAY because of a child's or family's situation — e.g. nobody can pick a child
+up after school, a child is unwell at the center right now, someone unexpected is picking
+a child up, a safety problem happening now, or a same-day deadline the parent can't meet.
+Mentioning a time word is not enough: "how is the weather today?" or "are you open
+today?" are not urgent. urgency_reason: one short sentence, or empty if not urgent.
 """
 
 

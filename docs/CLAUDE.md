@@ -97,7 +97,8 @@ full reasoning behind every design choice below; this file states the
   and never claims to have contacted staff itself.
 - **Every other escalation** — out-of-scope, below-threshold, system
   error, or sensitive with an answer that didn't fully verify — shows
-  only the staff-notified message with the phone number (#25). For a
+  only: "Thank you for your inquiry, sorry I am unable to answer the question, you can reach out to (555) 014-2200 to get your question answered!" (#25, wording #43). The question still goes to the
+  staff queue, but the parent isn't told so. For a
   sensitive question, a short category-specific opener comes first
   ("I'm sorry to hear that — that sounds hard. …"; none for safety or
   custody/legal) — decision log #41. An
@@ -118,9 +119,13 @@ full reasoning behind every design choice below; this file states the
   (semantic + adherence).
 - **Sensitivity** = is this topic inherently high-stakes, independent of
   how well-grounded the answer is.
-- **Urgency** = is this time-critical (keyword-triggered: "today," "right
-  now," "pick up early" — intentionally NOT an LLM call, and intentionally
-  NOT dynamic date-resolution; see decision log #5).
+- **Urgency** = does this need staff attention today because of a child
+  or family situation. Judged in context by the sensitivity classifier's
+  same call (structured `is_urgent` + `urgency_reason` fields — no extra
+  LLM call), so "how is the weather today?" is not urgent and "no one can
+  pick up my child after school" is. Falls back to the static keyword list
+  (`backend/urgency.py`) only if that call fails. Still NO dynamic
+  date-resolution. Decision log #44 (revises #5).
 
 A system can be fully confident about a sensitive topic (should still
 escalate) and fully unsure about a mundane one (should still escalate, for
@@ -141,7 +146,7 @@ handbook_chunks(id, category, title, content, source, embedding, updated_at)
 --         edited in the operator dashboard) — decision log #28
 question_log(
   id, created_at, question, answer, escalated, escalation_reason,
-  is_sensitive, is_urgent, sensitivity_category, sensitivity_score,
+  is_sensitive, is_urgent, urgency_reason, sensitivity_category, sensitivity_score,
   sensitivity_rationale, semantic_score, adherence_score,
   combined_score, threshold_used, retrieved_chunk_ids, claimed_facts,
   unmatched_facts, answer_shown, resolved
@@ -212,8 +217,9 @@ are in `docs/architecture.md` (decision log #14).
 - Sensitive questions (category ≠ `none` with score ≥ 3, or normalized
   sensitivity score ≥ 0.70) always escalate — unless fully grounded in
   staff-written entries (#28).
-- Urgency detection stays keyword-based and static — see "Out of scope"
-  below before adding date resolution.
+- Urgency stays a field of the existing classification call (no separate
+  LLM call), with the keyword list as fallback — see "Out of scope" below
+  before adding date resolution.
 - Knowledge-base editing and question review stay in separate operator UI
   sections (not combined into one view).
 

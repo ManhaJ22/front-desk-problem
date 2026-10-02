@@ -47,6 +47,7 @@ exactly what an operator needs to triage. Operator triage priority:
 sensitive+urgent → urgent → sensitive → low-confidence only.
 
 ### 5. Urgency is static keyword matching; no date resolution — 2026-10-01
+**Revised 2026-10-01 → see #44:** urgency is now judged in context by the existing classifier call; keywords are the fallback.
 Urgency is triggered by keywords ("today", "right now", "pick up early",
 …), not an LLM call and not dynamic date resolution. Resolving "Friday"
 to a calendar date and re-flipping urgency as it approaches is real
@@ -616,6 +617,43 @@ escalation; facts are still verified either way); more questions reach
 the staff queue; the real fix for a recurring gap is still content (e.g.
 add a mild-symptoms line to the Illness Policy via the dashboard).
 
+### 43. New wording for message-only escalations — revises #25's text — 2026-10-01
+Chosen by the user: "Thank you for your inquiry, sorry I am unable to answer the question, you can reach out to (555) 014-2200 to get your question answered!" — replacing "Thanks for your question. I've
+notified the Little Acorns staff about it. If it's urgent, call (555)
+014-2200." The "Sent to staff" label above the bubble is removed too.
+Behaviour is unchanged: the question still escalates into the staff queue
+and the phone number is still the next step.
+Trade-offs: the parent is no longer told staff have the question, so they
+may call about something staff are already looking at (duplicate effort,
+but never a dead end); the sensitive openers (#41) now read e.g. "I'm
+sorry to hear that — that sounds hard. Thank you for your inquiry, sorry I
+am unable…", with two apologies in a row. The staff note under a shown
+answer (#37, #42) still says staff were notified, which is true there.
+
+### 44. Urgency judged in context, in the existing classifier call — revises #5 — 2026-10-01
+Found in the deployed demo: "how is the weather today?" was flagged
+**Urgent** because "today" is a keyword; meanwhile "No one can pick up my
+child after school, can someone take care of him?" was *not* flagged
+because "after school" isn't. Keywords can't tell "today" as small talk
+from "today" as a same-day problem. The user asked for urgency that takes
+full context.
+
+Rule now: the sensitivity classifier (already one structured call per
+question, including out-of-scope ones since #38) also returns `is_urgent`
+and a one-line `urgency_reason`, defined as "needs staff attention today
+because of a child or family situation" (same-day pickup problems, a
+child unwell at the center, a safety issue now, a deadline today that
+the parent can't meet). The static keyword list in `urgency.py` remains
+only as a fallback when that call fails (or for small talk, which skips
+it). `urgency_reason` is stored and shown on the dashboard.
+- Kept from #5: no separate LLM call (zero added cost/latency) and no
+  dynamic date resolution ("this Friday" is still not resolved).
+- Changed from #5: urgency is now a model judgement, not a fixed rule —
+  less predictable and only testable with a fake classifier; the keyword
+  tests now cover the fallback.
+Trade-offs: the classifier can be wrong in both directions; a failure
+silently drops back to the cruder keyword behaviour.
+
 ---
 
 ## Known limitations and trade-offs (summary for the write-up)
@@ -662,9 +700,9 @@ Grouped; numbers point to the decisions above.
   (verified handbook content only, staff still notified) (#37).
 - No follow-up channel to the parent who asked; fixes help the *next*
   parent (#9, #17).
-- Urgency is static keywords: "today" flags routine questions as urgent;
-  "after school" doesn't flag a same-day pickup problem; no date
-  resolution (#5).
+- Urgency is an LLM judgement (#44): can be wrong either way; the
+  keyword fallback (used on classifier failure) is crude; still no date
+  resolution ("this Friday").
 
 **Operations and platform**
 - Paid instance + disk: small cost, a few seconds of downtime per

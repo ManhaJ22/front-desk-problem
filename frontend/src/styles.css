@@ -105,10 +105,6 @@ p { margin: 0; }
 .bubble-answer { align-self: flex-start; background: var(--surface); box-shadow: var(--shadow); border-bottom-left-radius: 4px; }
 .bubble-escalated { align-self: flex-start; background: var(--escalate-bg); color: var(--escalate-ink); border-bottom-left-radius: 4px; }
 .bubble-error { align-self: flex-start; background: var(--error-bg); color: var(--error-ink); border-bottom-left-radius: 4px; }
-.bubble-label {
-  display: block; font-size: 0.72rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;
-}
 .typing { color: var(--muted); font-style: italic; }
 .bubble-note {
   margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line);

@@ -186,4 +186,5 @@ def test_init_db_migrates_pre_answer_shown_logs():
                      "is_sensitive INTEGER DEFAULT 0, is_urgent INTEGER DEFAULT 0, resolved INTEGER DEFAULT 0)")
         conn.execute("INSERT INTO question_log (created_at, question, escalated) VALUES ('2026-01-01', 'old', 1)")
     db.init_db()
-    assert db.list_logs("all")[0]["answer_shown"] is False
+    row = db.list_logs("all")[0]
+    assert row["answer_shown"] is False and row["urgency_reason"] is None  # #37, #44 columns added

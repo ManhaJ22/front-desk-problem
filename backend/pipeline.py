@@ -12,8 +12,11 @@ from backend.urgency import is_urgent
 
 
 def _record_sensitivity(log: dict, sens: SensitivityResult) -> bool:
+    """Store the classifier's sensitivity AND urgency judgement (urgency replaces the keyword guess, #44)."""
     sensitive = sensitivity.is_sensitive(sens)
     log.update(
+        is_urgent=sens.is_urgent,
+        urgency_reason=sens.urgency_reason or None,
         is_sensitive=sensitive,
         sensitivity_category=sens.category.value,
         sensitivity_score=sens.score,
@@ -29,6 +32,7 @@ def answer_question(question: str) -> AskResponse:
         log_id = db.insert_log({"question": question, "answer": reply, "escalated": False, "answer_shown": True})
         return AskResponse(log_id=log_id, escalated=False, answer=reply, message=None, sources=[])
 
+    # Keyword urgency is only the fallback; the classifier's judgement replaces it when it runs (#44).
     log: dict = {"question": question, "is_urgent": is_urgent(question), "escalated": True}
     sources: list[Source] = []
 

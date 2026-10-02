@@ -26,6 +26,9 @@ class SensitivityResult(BaseModel):
     category: SensitivityCategory
     score: int  # 1-5; clamped by sensitivity.py
     rationale: str
+    # Urgency is judged in the same call, in context (decision log #44).
+    is_urgent: bool = False
+    urgency_reason: str = ""
 
 
 class GeneratedAnswer(BaseModel):
@@ -88,6 +91,7 @@ class QuestionOut(BaseModel):
     escalation_reason: str | None
     is_sensitive: bool
     is_urgent: bool
+    urgency_reason: str | None  # classifier's reason; None when the keyword fallback decided (#44)
     sensitivity_category: str | None
     sensitivity_score: int | None
     sensitivity_rationale: str | None

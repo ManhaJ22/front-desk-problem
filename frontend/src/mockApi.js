@@ -3,7 +3,7 @@
 // say nothing about how the real pipeline decides.
 
 const ESCALATION_MESSAGE =
-  "Thanks for your question. I've notified the Little Acorns staff about it. If it's urgent, call (555) 014-2200.";
+  "Thank you for your inquiry, sorry I am unable to answer the question, you can reach out to (555) 014-2200 to get your question answered!";
 const DELAY_MS = 600;
 
 const wait = () => new Promise((r) => setTimeout(r, DELAY_MS));
@@ -74,6 +74,7 @@ const BLANK_LOG = {
   escalation_reason: null,
   is_sensitive: false,
   is_urgent: false,
+  urgency_reason: null,
   sensitivity_category: null,
   sensitivity_score: null,
   sensitivity_rationale: null,
@@ -101,6 +102,7 @@ let questions = [
     escalation_reason: "sensitive_forced",
     is_sensitive: true,
     is_urgent: true,
+    urgency_reason: "The child is unwell and the parent needs to know whether to bring him in today.",
     sensitivity_category: "health",
     sensitivity_score: 5,
     sensitivity_rationale: "Asks whether a child who is currently ill can attend.",

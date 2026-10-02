@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS question_log (
   escalation_reason TEXT,             -- out_of_scope | sensitive_forced | below_threshold | system_error
   is_sensitive INTEGER NOT NULL DEFAULT 0,
   is_urgent INTEGER NOT NULL DEFAULT 0,
+  urgency_reason TEXT,                -- classifier's reason; NULL = keyword fallback (decision log #44)
   sensitivity_category TEXT,
   sensitivity_score INTEGER,
   sensitivity_rationale TEXT,
@@ -72,6 +73,7 @@ def init_db() -> None:
         # Migrate databases created before later columns existed (the persistent disk keeps old files).
         _add_column_if_missing(conn, "handbook_chunks", "source", "TEXT NOT NULL DEFAULT 'handbook'")  # #28
         _add_column_if_missing(conn, "question_log", "answer_shown", "INTEGER NOT NULL DEFAULT 0")  # #37
+        _add_column_if_missing(conn, "question_log", "urgency_reason", "TEXT")  # #44
 
 
 def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:

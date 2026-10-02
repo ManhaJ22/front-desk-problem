@@ -44,10 +44,11 @@ SENSITIVITY_THRESHOLD = 0.70  # score 4-5 is sensitive whatever the category
 SENSITIVE_CATEGORY_MIN_SCORE = 3  # a category tag scored 1-2 ("call her in sick") doesn't force escalation
 
 # --- Copy -------------------------------------------------------------------------------
-# Always gives the parent a next step (decision log #25). Mirrored in frontend/src/mockApi.js.
+# Shown when no answer is shown; always gives the parent a next step (decision log #25, wording #43).
+# Mirrored in frontend/src/mockApi.js.
 ESCALATION_MESSAGE = (
-    "Thanks for your question. I've notified the Little Acorns staff about it. "
-    "If it's urgent, call (555) 014-2200."
+    "Thank you for your inquiry, sorry I am unable to answer the question, "
+    "you can reach out to (555) 014-2200 to get your question answered!"
 )
 # Shown under a verified answer that still goes to staff: sensitive (#37) or a handbook gap (#42).
 SENSITIVE_ANSWER_NOTE = (

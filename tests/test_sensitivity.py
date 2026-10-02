@@ -48,3 +48,9 @@ def test_classify_sends_question_only_with_schema(fake_generate):
 def test_classify_clamps_out_of_range_scores(fake_generate, raw, clamped):
     fake_generate.responses[SensitivityResult] = result(SensitivityCategory.none, raw)
     assert classify("q").score == clamped
+
+
+def test_classifier_is_told_how_to_judge_urgency_in_context():
+    # Decision log #44: a time word alone isn't urgent.
+    assert "is_urgent is true only if" in sensitivity.SYSTEM_INSTRUCTION
+    assert "how is the weather today?" in sensitivity.SYSTEM_INSTRUCTION

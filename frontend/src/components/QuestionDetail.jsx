@@ -67,7 +67,7 @@ export default function QuestionDetail({ question: q, chunks, onResolve, onAddTo
           <p className="muted small">
             {q.answer_shown
               ? "The answer was fully verified, so the parent saw it along with a note that staff were notified."
-              : 'The parent only saw the "staff has been notified" message.'}
+              : "The parent only saw the \"unable to answer\" message with the front-office number."}
           </p>
         )}
       </section>
@@ -115,6 +115,19 @@ export default function QuestionDetail({ question: q, chunks, onResolve, onAddTo
           <p>
             {categoryLabel(q.sensitivity_category)} · {q.sensitivity_score}/5
             {q.sensitivity_rationale && <span className="muted"> — {q.sensitivity_rationale}</span>}
+          </p>
+        </section>
+      )}
+
+      {q.is_urgent && (
+        <section>
+          <h3>Urgency</h3>
+          <p>
+            Urgent
+            <span className="muted">
+              {" — "}
+              {q.urgency_reason ?? "flagged by keyword (the classifier didn't run for this question)."}
+            </span>
           </p>
         </section>
       )}

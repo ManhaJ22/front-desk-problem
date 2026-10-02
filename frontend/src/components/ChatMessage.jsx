@@ -10,10 +10,7 @@ export default function ChatMessage({ message }) {
 
   if (kind === "escalated") {
     return (
-      <div className="bubble bubble-escalated">
-        <span className="bubble-label">Sent to staff</span>
-        {text}
-      </div>
+      <div className="bubble bubble-escalated">{text}</div>
     );
   }
 

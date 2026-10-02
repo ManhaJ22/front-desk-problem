@@ -24,7 +24,7 @@ one has a default in the sections below.
 | I | Similarity floor and ceiling before calibration | **Done 2026-10-01 (#21):** floor 0.64, semantic zero 0.50, ceiling 0.77 for `gemini-embedding-001` @ 768 |
 | J | Operator routes on a public URL | No auth (CLAUDE.md lists this as out of scope). Anyone with the URL can edit the KB in the demo |
 | K | What a parent sees on an answered question | The answer, plus "From the handbook: <title>" for each chunk that backed at least one matched fact |
-| L | Exact escalation wording | **Revised (#25):** "Thanks for your question. I've notified the Little Acorns staff about it. If it's urgent, call (555) 014-2200." Still promises no reply (there is no reply channel), but always gives a next step |
+| L | Exact escalation wording | **Revised (#43):** "Thank you for your inquiry, sorry I am unable to answer the question, you can reach out to (555) 014-2200 to get your question answered!" No staff-notification claim and no "Sent to staff" label; the question still lands in the staff queue |
 | M | "Add to KB" from a question | Always creates a **new** chunk. Existing chunks are edited in the Knowledge Base tab |
 | N | Adding a KB answer for a sensitive question (fever, custody…) | **Revised (#28):** staff-written answers win — the question is answered next time if every fact is verified against staff-written entries. The editor note says so |
 
@@ -167,7 +167,8 @@ question_log(
   escalated INTEGER NOT NULL,    -- 0/1
   escalation_reason TEXT,        -- (A) out_of_scope | sensitive_forced | below_threshold | partial_answer | system_error | NULL
   is_sensitive INTEGER NOT NULL DEFAULT 0,
-  is_urgent INTEGER NOT NULL DEFAULT 0,   -- (A)
+  is_urgent INTEGER NOT NULL DEFAULT 0,   -- (A) from the classifier (#44); keyword fallback
+  urgency_reason TEXT,           -- classifier's one-line reason; NULL for keyword fallback (#44)
   sensitivity_category TEXT,     -- NULL when classification didn't run
   sensitivity_score INTEGER,
   sensitivity_rationale TEXT,
@@ -187,7 +188,7 @@ question_log(
 ### `schemas.py`
 LLM output models (passed as `response_schema`):
 - `SensitivityCategory(str, Enum)`: `health, safety, allergies, custody_legal, emotional_social, none`
-- `SensitivityResult`: `category: SensitivityCategory`, `score: int` (1–5), `rationale: str`
+- `SensitivityResult`: `category: SensitivityCategory`, `score: int` (1–5), `rationale: str`, `is_urgent: bool`, `urgency_reason: str` (urgency judged in the same call, #44)
 - `GeneratedAnswer`: `answer: str`, `claimed_facts: list[str]`, `fully_answers_question: bool` (false when the excerpts only partly cover the question, #42)
 
 API models: `AskRequest`, `AskResponse`, `Source`, `ChunkIn`, `ChunkOut`, `QuestionOut`, `AddToKbRequest`, `Stats` (fields under **API contract**).
@@ -237,7 +238,7 @@ The only module that imports `google.genai`. Tests mock these two functions.
 
 ### `urgency.py`
 - `URGENT_PHRASES` (case-insensitive, whole-word/phrase): `today, tonight, right now, asap, urgent, emergency, this morning, this afternoon, pick up early, pickup early, picking up early, early pickup, running late, on my way, immediately`.
-- `is_urgent(question) -> bool`. Static: no date parsing (decision #5).
+- `is_urgent(question) -> bool`. Static: no date parsing (decision #5). **Since #44 this is only the fallback** — used when the classification call fails or doesn't run; normally the classifier's `is_urgent` wins.
 
 ### `small_talk.py` (decision log #40)
 - `small_talk_reply(question) -> str | None`: returns a canned reply if the whole message is a greeting ("hi", "good morning", "hey there") or thanks ("thanks!", "thank you so much"), else `None`. Whole-word matching only — "high fever today" is not a greeting — and only short messages (a greeting plus filler words); "hi, my child is sick" goes through the pipeline.
@@ -254,7 +255,7 @@ Step 0: `small_talk_reply(question)` — if it returns text, log it as answered 
 On a message-only escalation of a sensitive question, `message = SENSITIVITY_OPENERS[category] + ESCALATION_MESSAGE` (#41).
 
 ```
-urgent = is_urgent(q)
+urgent = is_urgent(q)   # keyword fallback; replaced by the classifier's is_urgent when it runs (#44)
 try:
   hits = retrieve(q)
   if is_out_of_scope(hits):            → classify sensitivity (failure tolerated), escalate("out_of_scope"); no generation (#38)
@@ -307,10 +308,10 @@ No test calls Gemini; `backend.gemini.embed` and `generate_structured` are monke
 - `test_small_talk.py`: greetings/thanks (with punctuation, case, filler like "there") get a reply; questions that merely start with a greeting word or share its letters ("high fever today", "history of the center?", "hi, my child is sick") don't.
 - `test_triage.py`: priority order 1–4 and the full sort order.
 - `test_kb.py`: data layer: `init_db` is idempotent; `seed_if_empty` seeds every handbook chunk in one `RETRIEVAL_DOCUMENT` embed call and is a no-op the second time; `create_chunk` slugs titles and de-duplicates ids; `update_chunk` re-embeds and bumps `updated_at`; delete; chunk listings never expose embeddings; `insert_log`/`list_logs` round-trip JSON + booleans and filter `needs_review`; `mark_resolved`.
-- `test_sensitivity.py`: `normalized()` maps 1→0.0 … 5→1.0; `is_sensitive()`: a non-`none` category is sensitive at score ≥ 3 but not at 1–2; any category is sensitive at score ≥ 4 (the 0.70 boundary); `classify()` passes the schema and question-only prompt to `generate_structured` (mocked).
+- `test_sensitivity.py`: `normalized()` maps 1→0.0 … 5→1.0; `is_sensitive()`: a non-`none` category is sensitive at score ≥ 3 but not at 1–2; any category is sensitive at score ≥ 4 (the 0.70 boundary); `classify()` passes the schema and question-only prompt to `generate_structured` (mocked). The system instruction defines urgency in context (#44).
 - `test_retrieval.py`: `cosine()` basics; `retrieve()` returns top-`TOP_K` by cosine (embedder mocked); `semantic_score()` clamps at floor/ceiling; `is_out_of_scope()` boundary and empty KB; `relevant()` filters at the floor.
 - `test_generation.py`: the prompt contains the question and every excerpt labelled by title; the call uses the `GeneratedAnswer` schema and the grounding rules in the system instruction (generator mocked).
-- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes exactly one LLM call (classification, never generation) and records sensitivity; a classification failure on an out-of-scope question stays `out_of_scope`; sensitive questions escalate even at confidence 1.0; a category tag with score 2 (e.g. calling in sick) is answered if grounded; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row.
+- `test_pipeline.py` (orchestration, with the component modules' Gemini calls mocked): out-of-scope makes exactly one LLM call (classification, never generation) and records sensitivity; a classification failure on an out-of-scope question stays `out_of_scope`; sensitive questions escalate even at confidence 1.0; a category tag with score 2 (e.g. calling in sick) is answered if grounded; `threshold_used` is 0.80 on classified rows; below threshold escalates; a Gemini error escalates as `system_error`; every path writes a log row. Urgency: the classifier's `is_urgent` overrides keywords ("weather today" → not urgent; "after school" pickup → urgent); keyword fallback when classification fails.
 - `test_api.py`: request/response shapes for every endpoint; add-to-kb creates a chunk and resolves the question.
 
 ---

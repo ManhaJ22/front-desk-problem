@@ -13,7 +13,7 @@ from backend.schemas import GeneratedAnswer, SensitivityCategory, SensitivityRes
 ASK_KEYS = {"log_id", "escalated", "answer", "message", "sources"}
 QUESTION_KEYS = {
     "id", "created_at", "question", "answer", "escalated", "escalation_reason", "is_sensitive",
-    "is_urgent", "sensitivity_category", "sensitivity_score", "sensitivity_rationale",
+    "is_urgent", "urgency_reason", "sensitivity_category", "sensitivity_score", "sensitivity_rationale",
     "semantic_score", "adherence_score", "combined_score", "threshold_used",
     "retrieved_chunk_ids", "claimed_facts", "unmatched_facts", "answer_shown", "resolved", "priority",
 }  # fmt: skip

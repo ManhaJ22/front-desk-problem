@@ -17,7 +17,7 @@ detail.
 | Requirement (source) | How the frontend meets it | OK? |
 |---|---|---|
 | Parent can ask a question (assignment) | Text input plus chips for the 5 Brightwheel example questions | ✅ |
-| Answer is specific and feels trustworthy (assignment) | Answer bubble with "From the handbook: <title>" tags (architecture K) | ✅ |
+| Answer is specific and feels trustworthy (assignment) | Answer bubble with "From our policies: <title>" tags (architecture K) | ✅ |
 | Every escalation shows the parent **only** "staff has been notified" (CLAUDE.md, decision #8) | The escalation bubble renders `message` and nothing else. No answer, scores, or excerpt, whatever `escalation_reason` is (the parent API doesn't return a reason) | ✅ |
 | Mobile-friendly (assignment) | Mobile-first CSS; parent view fits a 375px width; operator view stacks list then detail on narrow screens (decision #16) | ✅ |
 | Operator can edit the source of truth (assignment) | Knowledge Base tab: add, edit, delete chunks | ✅ |

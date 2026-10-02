@@ -23,7 +23,7 @@ one has a default in the sections below.
 | H | Embedding size | 768 dimensions (`output_dimensionality=768`). Plenty for about 20 chunks, and smaller rows |
 | I | Similarity floor and ceiling before calibration | **Done 2026-10-01 (#21):** floor 0.64, semantic zero 0.50, ceiling 0.77 for `gemini-embedding-001` @ 768 |
 | J | Operator routes on a public URL | No auth (CLAUDE.md lists this as out of scope). Anyone with the URL can edit the KB in the demo |
-| K | What a parent sees on an answered question | The answer, plus "From the handbook: <title>" for each chunk that backed at least one matched fact |
+| K | What a parent sees on an answered question | The answer, plus "From our policies: <title>" for each chunk that backed at least one matched fact |
 | L | Exact escalation wording | **Revised (#43):** "Thank you for your inquiry, sorry I am unable to answer the question, you can reach out to (555) 014-2200 to get your question answered!" No staff-notification claim and no "Sent to staff" label; the question still lands in the staff queue |
 | M | "Add to KB" from a question | Always creates a **new** chunk. Existing chunks are edited in the Knowledge Base tab |
 | N | Adding a KB answer for a sensitive question (fever, custody…) | **Revised (#28):** staff-written answers win — the question is answered next time if every fact is verified against staff-written entries. The editor note says so |
@@ -339,7 +339,7 @@ Detailed build plan: `docs/plans/frontend-plan.md`.
 **Parent view**
 - `pages/ParentChat.jsx`: sends the last 3 exchanges (6 turns, errors excluded) as `history` with each question (#45); shows the full staff note once per conversation, then "Our staff have this one too." (#46); center name header; message list (kept in component state for the session only); text input with a 500-character limit; send is disabled while waiting, and a "Checking the handbook…" indicator shows.
 - `components/SuggestedQuestions.jsx`: chips for the five Brightwheel example questions, shown until the first message is sent.
-- `components/ChatMessage.jsx`: parent bubble / answer bubble with "From the handbook: <title>" tags / escalation bubble. The escalation bubble uses a calm, neutral style, not error red, and shows only `message`. When a response has both `answer` and `message` (sensitive + verified, #37), it renders as an answer bubble with sources and the staff note underneath.
+- `components/ChatMessage.jsx`: parent bubble / answer bubble with "From our policies: <title>" tags / escalation bubble. The escalation bubble uses a calm, neutral style, not error red, and shows only `message`. When a response has both `answer` and `message` (sensitive + verified, #37), it renders as an answer bubble with sources and the staff note underneath.
 - Network failure → "Sorry, something went wrong — please try again or call (555) 014-2200." This is the one place the frontend shows anything other than an answer or the escalation message.
 
 **Operator view**

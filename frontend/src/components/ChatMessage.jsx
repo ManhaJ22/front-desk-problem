@@ -25,7 +25,7 @@ export default function ChatMessage({ message }) {
         <div className="sources">
           {sources.map((s) => (
             <span key={s.id} className="source-tag">
-              From the handbook: {s.title}
+              From our policies: {s.title}
             </span>
           ))}
         </div>

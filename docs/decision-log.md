@@ -725,6 +725,37 @@ Trade-offs: "relevant parts only" is the model's judgement and could omit
 a criterion the parent needed; the shortened note drops the phone number
 on later turns (it's still in the earlier message).
 
+### 47. Speak as the center, not about the handbook — 2026-10-01
+The user found replies robotic: nearly every one began "Our handbook
+states…", and a rephrased follow-up ("I mean early drop off") got the
+previous answer repeated verbatim. The cause was our own prompt rule
+(from #42) telling the model to "call your source 'our handbook' or 'our
+policy'".
+Rule now: answer in first person as front-desk staff ("We open at
+7:00 AM", "Tuition for infants is $2,150 a month"); never "our handbook
+states/says/mentions"; "our policy is…" only occasionally for genuine
+rules; gaps phrased naturally ("I don't have details on early drop-off
+before 7:00 AM"); follow-ups answer what the parent is getting at instead
+of repeating. Provenance stays visible through the "From the handbook:
+<section>" source tags (#34), so the prose doesn't need to cite.
+Live check: 0 of 7 answers mentioned the handbook; facts still verified.
+**Follow-up (user):** gaps should sound apologetic and human — "Sorry, I
+can't answer that one — our policy doesn't cover drop-off before 7:00 AM"
+(varied wording), still giving any part that *can* be answered. The
+source tag under answers changed from "From the handbook: <section>" to
+"From our policies: <section>".
+**Follow-up 2 (user):** the model copied the single example verbatim, so
+the prompt now lists 4 phrasings to rotate (and not reuse within a
+conversation). First attempt used bare apologies as examples, which made
+the model sometimes reply with *only* an apology — no facts, so it failed
+verification and fell back to the generic message. Examples now pair the
+apology with the closest related fact ("…but regular drop-off starts at
+7:00 AM"), and related facts must go in claimed_facts. Live: 2/2 runs
+showed every partial answer; rotation is better but not perfect (one run
+repeated an opener in consecutive turns — lite-model limit).
+Trade-off: first-person phrasing makes answers sound authoritative — the
+verification and source tags are what keep that honest.
+
 ---
 
 ## Known limitations and trade-offs (summary for the write-up)
